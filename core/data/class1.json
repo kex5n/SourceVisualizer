@@ -1,0 +1,40 @@
+{
+	"classname":"c1",
+    "properties": [
+        {"name":"v11","type":"int"},
+        {"name":"v12","type":"int"},
+        {"name":"v13","type":"int"}
+    ],
+    "methods": [
+        {
+			"name":"m11",
+			"return":"void",
+			"argcnt":1,
+			"args":[{"name":"x","type":"int"}]
+        },
+		{
+			"name":"m12",
+			"return":"void",
+			"argcnt":1,
+			"args":[{"name":"y","type":"int"}]		
+		},
+		{
+			"name":"m13",
+			"return":"void",
+			"argcnt":1,
+			"args":[{"name":"z","type":"int"}]		
+		}
+    ],
+	"dependencies":
+		{
+			"mm":[
+				{"src":"m11","dst":"m12"},
+				{"src":"m12","dst":"m13"}
+			],
+			"mv":[
+				{"src":"m11","dst":"v11"},
+				{"src":"m12","dst":"v12"},
+				{"src":"m13","dst":"v13"}
+			]
+		}
+}
