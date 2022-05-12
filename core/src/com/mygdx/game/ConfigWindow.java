@@ -8,27 +8,20 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.utils.ScreenUtils;
-import com.badlogic.gdx.graphics.g2d.Batch;
 
-public class LogWindow extends ApplicationAdapter {
-	String logText;
+public class ConfigWindow extends ApplicationAdapter {
 	float width;
 	float height;
 	private static SpriteBatch batch = new SpriteBatch();;
 	private static BitmapFont font = new BitmapFont();
 
-	public LogWindow(float width, float height) {
-		logText = "";
+	public ConfigWindow(float width, float height) {
 		this.width = width;
 		this.height = height;
 		font.setColor(Color.BLACK);
 		font.getData().setScale(6.0f);
 	}
-	
-	public void setLogText(String logText) {
-		this.logText = logText;
-	}
-	
+
 	@Override
 	public void create () {
 	}
@@ -39,7 +32,6 @@ public class LogWindow extends ApplicationAdapter {
 		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
 		this.batch.begin();
-		font.draw(batch, logText, 100, 1100);
 		this.batch.end();
 	}
 	

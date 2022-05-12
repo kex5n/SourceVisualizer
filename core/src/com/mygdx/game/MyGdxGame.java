@@ -29,6 +29,7 @@ public class MyGdxGame extends ApplicationAdapter {
 	static SpriteBatch sharedSpriteBatch;
 	static Lwjgl3Application app;
 	static Lwjgl3Window logWindow;
+	static Lwjgl3Window configWindow;
 	static ShapeRenderer shapeRenderer;
 	static Stage stage;
 
@@ -46,13 +47,24 @@ public class MyGdxGame extends ApplicationAdapter {
 		drawer = new Drawer(p, stage);
 
 		app = (Lwjgl3Application) Gdx.app;
-		Lwjgl3WindowConfiguration config = new Lwjgl3WindowConfiguration();
+	
+		// create log window
+		Lwjgl3WindowConfiguration logConfig = new Lwjgl3WindowConfiguration();
+		DisplayMode logMode = Gdx.graphics.getDisplayMode();
+		logConfig.setWindowPosition(logMode.width - 640, logMode.height);
+		logConfig.setTitle("Log");
+		logConfig.setResizable(false);
+		ApplicationListener logListener = new LogWindow(logMode.width, logMode.height);
+		logWindow = app.newWindow(logListener, logConfig);
+
+		// create config window
+		Lwjgl3WindowConfiguration configConfig = new Lwjgl3WindowConfiguration();
 		DisplayMode mode = Gdx.graphics.getDisplayMode();
-		config.setWindowPosition(mode.width - 640, mode.height);
-		config.setTitle("Log");
-		config.setResizable(false);
-		ApplicationListener listener = new LogWindow();
-		logWindow = app.newWindow(listener, config);
+		configConfig.setWindowPosition(mode.width - 640, 0);
+		configConfig.setTitle("Config");
+		configConfig.setResizable(false);
+		ApplicationListener configListener = new ConfigWindow(logMode.width, logMode.height);
+		configWindow = app.newWindow(configListener, configConfig);
 	}
 	
 	@Override
@@ -60,7 +72,10 @@ public class MyGdxGame extends ApplicationAdapter {
 		Gdx.gl.glClearColor(1, 1, 1, 1);
 		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-		// drawer.draw(shapeRenderer, sharedSpriteBatch);
+		String logText = drawer.getLogText();
+		LogWindow tempLogWindow = (LogWindow) logWindow.getListener();
+		tempLogWindow.setLogText(logText);
+
 		stage.act(Gdx.graphics.getDeltaTime());
 		stage.draw();
 		drawer.draw(shapeRenderer, sharedSpriteBatch);
@@ -69,6 +84,8 @@ public class MyGdxGame extends ApplicationAdapter {
 	@Override
 	public void dispose () {
 		sharedSpriteBatch.dispose();
+		logWindow.closeWindow();
+		configWindow.closeWindow();
 	}
 
 	@Override

@@ -13,6 +13,7 @@ import model.domain.Dependency;
 import model.domain.Attribute;
 import model.service.AttributeTransferer;
 import model.service.DependencyResolver;
+import model.service.LogManager;
 
 import view.components.Point;
 import view.components.Box;
@@ -48,6 +49,7 @@ public class Drawer {
 	private Class rightClass;
 
 	private AttributeTransferer attributeTransferer;
+	private LogManager logManager;
 	
 	private Point leftClassBoxStartPoint;
 	private Point rightClassBoxStartPoint;
@@ -59,7 +61,7 @@ public class Drawer {
 	private HashMap<String, PropertyBox> rightPropertyBoxMap;
 	private ArrayList<DependencyVector> leftDependencyVectorArray;
 	private ArrayList<DependencyVector> rightDependencyVectorArray;
-
+	
 	private Stage stage;
 	private DragAndDrop dragAndDrop;
 
@@ -68,6 +70,7 @@ public class Drawer {
 		this.stage = stage;
 		load();
 		attributeTransferer = new AttributeTransferer(p.getClasses().get(0), p.getClasses().get(1));
+		logManager = new LogManager();
 	}
 
 	public void load() {
@@ -113,6 +116,10 @@ public class Drawer {
 		}
 	}
 
+	public String getLogText() {
+		return logManager.getLogText();
+	}
+
 	private void setDragAndDropFunction(Box b, ClassBox targetClassBox) {
 		Source s = new Source(b) {
 			@Null
@@ -151,6 +158,7 @@ public class Drawer {
 					srcClass = attributeTransferer.getRightClass();
 					dstClass = attributeTransferer.getLeftClass();
 				}
+				logManager.recordMainMove(srcName, srcClass, dstClass);
 				HashMap<String, Object> dependencyInfo = DependencyResolver.resolve(srcClass, srcName);
 				HashSet<Attribute> relatedAttributes = (HashSet<Attribute>) dependencyInfo.get("attribute");
 				for (Attribute a: relatedAttributes) {
@@ -183,6 +191,24 @@ public class Drawer {
 		for (DependencyVector v: rightDependencyVectorArray) {
 			drawDependencyVector(shapeRenderer, v);
 		}
+
+		// draw name
+		batch.begin();
+		leftClassBox.drawName(batch);
+		rightClassBox.drawName(batch);
+		for (PropertyBox p: leftPropertyBoxMap.values()) {
+			p.drawName(batch);
+		}
+		for (PropertyBox p: rightPropertyBoxMap.values()) {
+			p.drawName(batch);
+		}
+		for (MethodBox m: leftMethodBoxMap.values()) {
+			m.drawName(batch);
+		}
+		for (MethodBox m: rightMethodBoxMap.values()) {
+			m.drawName(batch);
+		}
+		batch.end();
 	}
 
 	private void drawDependencyVector(ShapeRenderer shapeRenderer, DependencyVector dependencyVector) {
@@ -197,6 +223,8 @@ public class Drawer {
 		} else {
 			shapeRenderer.setColor(Color.FOREST);
 		}
+
+		// draw main line
 		shapeRenderer.rectLine(
 				startPoint.x,
 				startPoint.y,
@@ -217,6 +245,16 @@ public class Drawer {
 				startPoint.x + distance,
 				endPoint.y,
 				lineWidth
+		);
+
+		// draw triangle
+		shapeRenderer.triangle(
+				endPoint.x,
+				endPoint.y,
+				endPoint.x + Math.signum(distance) * 24,
+				endPoint.y + 9,
+				endPoint.x + Math.signum(distance) * 24,
+				endPoint.y - 9
 		);
 		shapeRenderer.end();
 	}
@@ -271,7 +309,7 @@ public class Drawer {
 	}
 
 	private ArrayList<DependencyVector> createDependencyVectorArray(Box baseBox, HashMap<String, PropertyBox> propertyBoxMap, HashMap<String, MethodBox> methodBoxMap, Class c) {
-		int vectorDistance = 10;
+		int vectorDistance = 30;
 		int currentMethodVectorDistance = vectorDistance;
 		int currentPropertyVectorDistance = -vectorDistance;
 
