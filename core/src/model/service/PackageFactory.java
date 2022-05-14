@@ -6,12 +6,12 @@ import java.io.IOException;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 
 import model.domain.Package;
 import model.domain.Method;
 import model.domain.Class;
 import model.domain.Property;
-import model.domain.Dependency;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -49,12 +49,12 @@ public class PackageFactory {
 		JSONObject jo = (JSONObject) ob;
 		return jo;
 	}
-	
+
 	private static Class deserializeClass(JSONObject class_json) {
 		String class_name = (String) class_json.get("classname");
 
 		// Load Classed
-		ArrayList<Property> class_property = new ArrayList<Property>();
+		HashSet<Property> class_property = new HashSet<Property>();
 		JSONArray property_json_array = (JSONArray) class_json.get("properties");
 		for (Object property_ob : property_json_array) {
 			JSONObject property_json = (JSONObject) property_ob;
@@ -63,7 +63,7 @@ public class PackageFactory {
 		}
 
 		// Load Methods
-		ArrayList<Method> class_methods = new ArrayList<Method>();
+		HashSet<Method> class_methods = new HashSet<Method>();
 		JSONArray methods_json_array = (JSONArray) class_json.get("methods");
 		for (Object method_ob : methods_json_array) {
 			JSONObject method_json = (JSONObject) method_ob;
@@ -83,7 +83,7 @@ public class PackageFactory {
 			String src = (String) methodDependencyJsonObject.get("src");
 			String dst = (String) methodDependencyJsonObject.get("dst");
 			try {
-				c.setDependencies(src, dst);
+				c.setInternalDependencies(src, dst);
 			} catch (Exception e) {
 				System.exit(1);;
 			}
@@ -95,12 +95,11 @@ public class PackageFactory {
 			String src = (String) propertyDependencyJsonObject.get("src");
 			String dst = (String) propertyDependencyJsonObject.get("dst");
 			try {
-				c.setDependencies(src, dst);
+				c.setInternalDependencies(src, dst);
 			} catch (Exception e) {
 				System.exit(1);;
 			}
 		}
-
 		return c;
 	}
 

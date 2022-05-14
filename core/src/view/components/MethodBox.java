@@ -8,15 +8,21 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType;
 
 public class MethodBox extends Box{
+	private boolean isRemoved;
 	private ShapeRenderer shapeRenderer = new ShapeRenderer();
 	public static final int METHOD_BOX_WIDTH = 400;
 	public static final int METHOD_BOX_HEIGHT = 100;
 	public static final BitmapFont font = new BitmapFont();
-	
-	public MethodBox(Point startPoint, String name) {
+
+	public MethodBox(Point startPoint, String name, boolean isRemoved) {
 		super(startPoint, METHOD_BOX_WIDTH, METHOD_BOX_HEIGHT, name);
+		this.isRemoved = isRemoved;
 		font.setColor(Color.BLACK);
 		font.getData().setScale(2.0f);
+	}
+
+	public boolean getIsRemoved() {
+		return isRemoved;
 	}
 
 	public void drawName(Batch batch) {
@@ -32,7 +38,11 @@ public class MethodBox extends Box{
 	@Override
 	public void draw(Batch batch, float alpha) {
 		shapeRenderer.begin(ShapeType.Filled);
-		shapeRenderer.setColor(Color.YELLOW);
+		if (isRemoved) {
+			shapeRenderer.setColor(Color.DARK_GRAY);
+		} else {
+			shapeRenderer.setColor(Color.YELLOW);
+		}
 		shapeRenderer.rect(
 				getX(),
 				getY(),

@@ -9,8 +9,9 @@ import model.domain.Class;
 import model.domain.Package;
 import model.domain.Property;
 import model.domain.Method;
-import model.domain.Dependency;
 import model.domain.Attribute;
+import model.domain.InternalDependency;
+import model.domain.ExternalDependency;
 import model.service.AttributeTransferer;
 import model.service.DependencyResolver;
 import model.service.LogManager;
@@ -47,6 +48,8 @@ public class Drawer {
 	private Package p;
 	private Class leftClass;
 	private Class rightClass;
+	private Class leftDefaultClass;
+	private Class rightDefaultClass;
 
 	private AttributeTransferer attributeTransferer;
 	private LogManager logManager;
@@ -59,8 +62,10 @@ public class Drawer {
 	private HashMap<String, MethodBox> rightMethodBoxMap;
 	private HashMap<String, PropertyBox> leftPropertyBoxMap;
 	private HashMap<String, PropertyBox> rightPropertyBoxMap;
-	private ArrayList<DependencyVector> leftDependencyVectorArray;
-	private ArrayList<DependencyVector> rightDependencyVectorArray;
+	private ArrayList<DependencyVector> leftInternalDependencyVectorArray;
+	private ArrayList<DependencyVector> rightInternalDependencyVectorArray;
+	private ArrayList<DependencyVector> leftExternalDependencyVectorArray;
+	private ArrayList<DependencyVector> rightExternalDependencyVectorArray;
 	
 	private Stage stage;
 	private DragAndDrop dragAndDrop;
@@ -77,20 +82,32 @@ public class Drawer {
 		stage.clear();
 		leftClass = p.getClasses().get(0);
 		rightClass = p.getClasses().get(1);
+		if (leftDefaultClass == null) {
+			leftDefaultClass = leftClass.clone();
+		}
+		if (rightDefaultClass == null) {
+			rightDefaultClass = rightClass.clone();
+		}
 
 		leftClassBoxStartPoint = new Point(LEFT_CLASS_CENTER_WIDTH, LEFT_CLASS_CENTER_HEIGHT);
 		rightClassBoxStartPoint = new Point(RIGHT_CLASS_CENTER_WIDTH, RIGHT_CLASS_CENTER_HEIGHT);
 		leftClassBox = new ClassBox(leftClassBoxStartPoint, leftClass.getName());
 		rightClassBox = new ClassBox(rightClassBoxStartPoint, rightClass.getName());
 
-		leftMethodBoxMap = createMethodBoxMap(leftClassBox, leftClass);
-		rightMethodBoxMap = createMethodBoxMap(rightClassBox, rightClass);
+		leftMethodBoxMap = createMethodBoxMap(leftClassBox, leftClass, leftDefaultClass);
+		rightMethodBoxMap = createMethodBoxMap(rightClassBox, rightClass, rightDefaultClass);
 	
-		leftPropertyBoxMap = createPropertyBoxMap(leftClassBox, leftClass);
-		rightPropertyBoxMap = createPropertyBoxMap(rightClassBox, rightClass);
+		leftPropertyBoxMap = createPropertyBoxMap(leftClassBox, leftClass, leftDefaultClass);
+		rightPropertyBoxMap = createPropertyBoxMap(rightClassBox, rightClass, rightDefaultClass);
 
-		leftDependencyVectorArray = createDependencyVectorArray(leftClassBox, leftPropertyBoxMap, leftMethodBoxMap, leftClass);
-		rightDependencyVectorArray = createDependencyVectorArray(rightClassBox, rightPropertyBoxMap, rightMethodBoxMap, rightClass);
+		leftInternalDependencyVectorArray = createInternalDependencyVectorArray(leftClassBox, leftPropertyBoxMap, leftMethodBoxMap, leftClass);
+		rightInternalDependencyVectorArray = createInternalDependencyVectorArray(rightClassBox, rightPropertyBoxMap, rightMethodBoxMap, rightClass);
+		leftExternalDependencyVectorArray = createExternalDependencyVectorArray(
+				leftPropertyBoxMap, leftMethodBoxMap, rightPropertyBoxMap, rightMethodBoxMap, leftClass.getExternalDependencies()
+		);
+		rightExternalDependencyVectorArray = createExternalDependencyVectorArray(
+				leftPropertyBoxMap, leftMethodBoxMap, rightPropertyBoxMap, rightMethodBoxMap, rightClass.getExternalDependencies()
+		);
 
 		// set listener
 		stage.addActor(leftClassBox);
@@ -100,19 +117,27 @@ public class Drawer {
 
 		for (final MethodBox mb: leftMethodBoxMap.values()) {
 			stage.addActor(mb);
-			setDragAndDropFunction(mb, rightClassBox);
+			if (!mb.getIsRemoved()) {
+				setDragAndDropFunction(mb, rightClassBox);
+			}
 		}
 		for (final MethodBox mb: rightMethodBoxMap.values()) {
 			stage.addActor(mb);
-			setDragAndDropFunction(mb, leftClassBox);
+			if (!mb.getIsRemoved()) {
+				setDragAndDropFunction(mb, leftClassBox);
+			}
 		}
 		for (final PropertyBox pb: leftPropertyBoxMap.values()) {
 			stage.addActor(pb);
-			setDragAndDropFunction(pb, rightClassBox);
+			if (!pb.getIsRemoved()) {
+				setDragAndDropFunction(pb, rightClassBox);
+			}
 		}
 		for (final PropertyBox pb: rightPropertyBoxMap.values()) {
 			stage.addActor(pb);
-			setDragAndDropFunction(pb, leftClassBox);
+			if (!pb.getIsRemoved()) {
+				setDragAndDropFunction(pb, leftClassBox);
+			}
 		}
 	}
 
@@ -149,6 +174,8 @@ public class Drawer {
 		Target t = new Target(targetClassBox) {
 			public void drop (Source source, Payload payload, float x, float y, int pointer) {
 				String srcName = source.getActor().getName();
+
+				// define srcClass and dstClass
 				Class srcClass;
 				Class dstClass;
 				if (attributeTransferer.leftClassHas(srcName)) {
@@ -158,23 +185,11 @@ public class Drawer {
 					srcClass = attributeTransferer.getRightClass();
 					dstClass = attributeTransferer.getLeftClass();
 				}
-				logManager.recordMainMove(srcName, srcClass, dstClass);
-				HashMap<String, Object> dependencyInfo = DependencyResolver.resolve(srcClass, srcName);
-				HashSet<Attribute> relatedAttributes = (HashSet<Attribute>) dependencyInfo.get("attribute");
-				for (Attribute a: relatedAttributes) {
-					attributeTransferer.transferAttribute(a.getName());
-				}
-				HashSet<Dependency> relatedDependencies = (HashSet<Dependency>) dependencyInfo.get("dependencies");
-				for (Dependency d: relatedDependencies) {
-					srcClass.removeDependency(d);
-					try {
-						dstClass.setDependencies(d.getSrc().getName(), d.getDst().getName());
-					} catch (Exception e) {
-						System.exit(1);;
-					}
-				}
+				// move related attributes
+				DependencyResolver.resolve(srcClass, dstClass, srcName, logManager);
 				load();
 			}
+
 			@Override
 			public boolean drag(Source source, Payload payload, float x, float y, int pointer) {
 				return true;
@@ -183,13 +198,19 @@ public class Drawer {
 		dragAndDrop.addSource(s);
 		dragAndDrop.addTarget(t);
 	}
-	
+
 	public void draw(ShapeRenderer shapeRenderer, Batch batch) {
-		for (DependencyVector v: leftDependencyVectorArray) {
+		for (DependencyVector v: leftInternalDependencyVectorArray) {
 			drawDependencyVector(shapeRenderer, v);
 		}
-		for (DependencyVector v: rightDependencyVectorArray) {
+		for (DependencyVector v: rightInternalDependencyVectorArray) {
 			drawDependencyVector(shapeRenderer, v);
+		}
+		for (DependencyVector v: leftExternalDependencyVectorArray) {
+			drawExternalDependencyVector(shapeRenderer, v);
+		}
+		for (DependencyVector v: rightExternalDependencyVectorArray) {
+			drawExternalDependencyVector(shapeRenderer, v);
 		}
 
 		// draw name
@@ -211,6 +232,44 @@ public class Drawer {
 		batch.end();
 	}
 
+	private void drawExternalDependencyVector(ShapeRenderer shapeRenderer, DependencyVector dependencyVector) {
+		int lineWidth = 40;
+		Point startPoint = dependencyVector.getStartPoint();
+		Point endPoint = dependencyVector.getEndPoint();
+
+		shapeRenderer.begin(ShapeType.Filled);
+		shapeRenderer.setColor(Color.PURPLE);
+		
+		// draw triangle
+		int height = 120;
+		int width = 56;
+		double diagonal = Math.sqrt(Math.pow(startPoint.x - endPoint.x, 2) + Math.pow(startPoint.y - endPoint.y, 2));
+		double cos = - (endPoint.x - startPoint.x) / diagonal;
+		double sin = - (endPoint.y - startPoint.y) / diagonal;
+		float p1X = (float) (cos * height - sin * width);
+		float p1Y = (float) (sin * height + cos * width);
+		float p2X = (float) (cos * height + sin * width);
+		float p2Y = (float) (sin * height - cos * width);
+		shapeRenderer.triangle(
+				endPoint.x,
+				endPoint.y,
+				endPoint.x + p1X,
+				endPoint.y + p1Y,
+				endPoint.x + p2X,
+				endPoint.y + p2Y
+		);
+
+		// draw main line
+		shapeRenderer.rectLine(
+				startPoint.x,
+				startPoint.y,
+				endPoint.x + (p1X + p2X) / 2,
+				endPoint.y + (p1Y + p2Y) / 2,
+				lineWidth
+		);
+		shapeRenderer.end();
+	}
+	
 	private void drawDependencyVector(ShapeRenderer shapeRenderer, DependencyVector dependencyVector) {
 		int lineWidth = 4;
 		Point startPoint = dependencyVector.getStartPoint();
@@ -259,30 +318,33 @@ public class Drawer {
 		shapeRenderer.end();
 	}
 	
-	private HashMap<String, MethodBox> createMethodBoxMap(Box baseBox, Class c) {
-		ArrayList<Method> methodArray = c.getMethods();
-		int numMethods = methodArray.size();
+	private HashMap<String, MethodBox> createMethodBoxMap(Box baseBox, Class c, Class defaultClass) {
+		HashSet<Method> wholeMethodSet = c.getMethods();
+		wholeMethodSet.addAll(defaultClass.getMethods());
+		int numMethods = wholeMethodSet.size();
 
 		Box methodRegion = new Box(baseBox.getLeftBottomPoint(), baseBox.getWidth(), baseBox.getHeight() / 2);
 		float methodBoxXValue = methodRegion.getLeftBottomPoint().x + (methodRegion.getWidth() - MethodBox.METHOD_BOX_WIDTH) / 2;
 		float interval = methodRegion.getHeight() / (numMethods + 1);
 
 		HashMap<String, MethodBox> methodBoxMap = new HashMap<String, MethodBox>();
-		for (int i = 0; i < methodArray.size(); i++) {
-			Method m = methodArray.get(i);
+		int count = 0;
+		for (Method m: wholeMethodSet) {
 			String name = m.getName();
 			Point startPoint = new Point(
 					methodBoxXValue,
-					methodRegion.getLeftBottomPoint().y + methodRegion.getHeight() - interval * (i + 1) - MethodBox.METHOD_BOX_HEIGHT / 2);
-			MethodBox methodBox = new MethodBox(startPoint, m.getName());
+					methodRegion.getLeftBottomPoint().y + methodRegion.getHeight() - interval * (count + 1) - MethodBox.METHOD_BOX_HEIGHT / 2);
+			MethodBox methodBox = new MethodBox(startPoint, m.getName(), !c.has(m.getName()));
 			methodBoxMap.put(name, methodBox);
+			count++;
 		}
 		return methodBoxMap;
 	}
 
-	private HashMap<String, PropertyBox> createPropertyBoxMap(Box baseBox, Class c) {
-		ArrayList<Property> propertyArray = c.getProperties();
-		int numProperties = propertyArray.size();
+	private HashMap<String, PropertyBox> createPropertyBoxMap(Box baseBox, Class c, Class defaultClass) {
+		HashSet<Property> wholePropertySet = c.getProperties();
+		wholePropertySet.addAll(defaultClass.getProperties());
+		int numProperties = wholePropertySet.size();
 
 		Point baseBoxStartPoint = baseBox.getLeftBottomPoint();
 		Point propertyRegionStartPoint = new Point(baseBoxStartPoint.x, baseBoxStartPoint.y + Math.round(baseBox.getHeight()) / 2);
@@ -291,34 +353,35 @@ public class Drawer {
 		float interval = propertyRegion.getHeight() / (numProperties + 1);
 
 		HashMap<String, PropertyBox> propertyBoxMap = new HashMap<String, PropertyBox>();
-		for (int i = 0; i < propertyArray.size(); i++) {
-			Property p = propertyArray.get(i);
+		int count = 0;
+		for (Property p: wholePropertySet) {
 			String name = p.getName();
 			Point startPoint = new Point(
 					propertyBoxXValue,
-					propertyRegion.getLeftBottomPoint().y + propertyRegion.getHeight() - interval * (i + 1) - PropertyBox.PROPERTY_BOX_HEIGHT / 2);
-			final PropertyBox propertyBox = new PropertyBox(startPoint, p.getName());
+					propertyRegion.getLeftBottomPoint().y + propertyRegion.getHeight() - interval * (count + 1) - PropertyBox.PROPERTY_BOX_HEIGHT / 2);
+			final PropertyBox propertyBox = new PropertyBox(startPoint, p.getName(), !c.has(p.getName()));
 			propertyBox.addListener(new DragListener() {
 				public void drag(InputEvent event, float x, float y, int pointer) {
 					propertyBox.moveBy(x - propertyBox.getWidth() / 2, y - propertyBox.getHeight() / 2);
 				}
 				});
 			propertyBoxMap.put(name, propertyBox);
+			count++;
 		}
 		return propertyBoxMap;
 	}
 
-	private ArrayList<DependencyVector> createDependencyVectorArray(Box baseBox, HashMap<String, PropertyBox> propertyBoxMap, HashMap<String, MethodBox> methodBoxMap, Class c) {
+	private ArrayList<DependencyVector> createInternalDependencyVectorArray(Box baseBox, HashMap<String, PropertyBox> propertyBoxMap, HashMap<String, MethodBox> methodBoxMap, Class c) {
 		int vectorDistance = 30;
 		int currentMethodVectorDistance = vectorDistance;
 		int currentPropertyVectorDistance = -vectorDistance;
 
 		ArrayList<DependencyVector> dependencyVectorArray = new ArrayList<DependencyVector>();
-		ArrayList<Dependency> dependencyArray = c.getDependencies();
+		ArrayList<InternalDependency> dependencyArray = c.getInternalDependencies();
 		for (int i = 0; i < dependencyArray.size(); i++) {
-			Dependency d = dependencyArray.get(i);
-			Attribute src = d.getSrc();
-			Attribute dst = d.getDst();
+			InternalDependency d = dependencyArray.get(i);
+			Attribute src = c.getAttribute(d.getSrcName());
+			Attribute dst = c.getAttribute(d.getDstName());
 			boolean isMethodDst = dst instanceof Method;
 			Box srcBox = methodBoxMap.get(src.getName());
 			Box dstBox;
@@ -343,5 +406,63 @@ public class Drawer {
 			}
 		}
 		return dependencyVectorArray;
+	}
+
+	private ArrayList<DependencyVector> createExternalDependencyVectorArray(
+			HashMap<String, PropertyBox> leftPropertyBoxMap,
+			HashMap<String, MethodBox> leftMethodBoxMap,
+			HashMap<String, PropertyBox> rightPropertyBoxMap,
+			HashMap<String, MethodBox> rightMethodBoxMap,
+			ArrayList<ExternalDependency> externalDependencies
+	) {
+		ArrayList<DependencyVector> externalDependencyVector = new ArrayList<DependencyVector>();
+		for (ExternalDependency d: externalDependencies) {
+			Box srcBox;
+			Box dstBox;
+			Point srcPoint;
+			Point dstPoint;
+			String srcName = d.getSrcName();
+			String dstName = d.getDstName();
+
+			if (leftClass.has(srcName)) {
+				if (leftClass.getAttribute(srcName) instanceof Method) {
+					srcBox = leftMethodBoxMap.get(srcName);
+				} else {
+					srcBox = leftPropertyBoxMap.get(srcName);
+				}
+				if (rightClass.getAttribute(dstName) instanceof Method) {
+					dstBox = rightMethodBoxMap.get(dstName);
+				} else {
+					dstBox = rightPropertyBoxMap.get(dstName);
+				}
+				srcPoint = srcBox.getRightConnectionPoints(1).get(0);
+				dstPoint = dstBox.getLeftConnectionPoints(1).get(0);
+			} else {
+				if (rightClass.getAttribute(srcName) instanceof Method) {
+					srcBox = rightMethodBoxMap.get(srcName);
+				} else {
+					srcBox = rightPropertyBoxMap.get(srcName);
+				}
+				if (leftClass.getAttribute(dstName) instanceof Method) {
+					dstBox = leftMethodBoxMap.get(dstName);
+				} else {
+					dstBox = leftPropertyBoxMap.get(dstName);
+				}
+				srcPoint = srcBox.getLeftConnectionPoints(1).get(0);
+				dstPoint = dstBox.getRightConnectionPoints(1).get(0);
+			}
+			externalDependencyVector.add(new DependencyVector(srcPoint, dstPoint, 0, false));
+		}
+		return externalDependencyVector;
+	}
+
+	private boolean inDefaultClass(Attribute a) {
+		if (leftClass.has(a.getName()) & leftDefaultClass.has(a.getName())) {
+			return true;
+		}
+		if (rightClass.has(a.getName()) & rightDefaultClass.has(a.getName())) {
+			return true;
+		}
+		return false;
 	}
 }
