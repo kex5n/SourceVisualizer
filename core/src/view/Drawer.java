@@ -1,5 +1,8 @@
 package view;
 
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -22,6 +25,11 @@ import view.components.ClassBox;
 import view.components.PropertyBox;
 import view.components.MethodBox;
 import view.components.DependencyVector;
+
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.Batch;
@@ -46,6 +54,8 @@ public class Drawer {
 	static final int RIGHT_CLASS_CENTER_HEIGHT = 100;
 
 	private Package p;
+	private ArrayList<Class> classArray;
+	private HashMap<String, Method> aloneMethods;
 	private Class leftClass;
 	private Class rightClass;
 	private Class leftDefaultClass;
@@ -73,9 +83,109 @@ public class Drawer {
 	public Drawer(Package p, Stage stage) {
 		this.p = p;
 		this.stage = stage;
+		this.classArray = new ArrayList<Class>();
+		this.aloneMethods = new HashMap<String, Method>();
+		this.logManager = new LogManager();
+		this.attributeTransferer = new AttributeTransferer(p.getClasses().get(0), p.getClasses().get(1));
 		load();
-		attributeTransferer = new AttributeTransferer(p.getClasses().get(0), p.getClasses().get(1));
-		logManager = new LogManager();
+		play();
+	}
+
+	public void add(String elementType, String name) {
+		if (elementType.equals("class")) {
+			addClass(name);
+		}
+		if (elementType.equals("method")) {
+			addMethods(name);
+		}
+	}
+
+	public void addClass(String name) {
+		Class c = new Class(name);
+		this.p.setClass(c);
+	}
+
+	public void addMethods(String name) {
+		Method m = new Method(name);
+		this.aloneMethods.put(name, m);
+	}
+
+	public void move(String elementType, String name, String srcClassName, String dstClassName) {
+		// define srcClass and dstClass
+		if (srcClassName.equals("")) {
+			Method m = aloneMethods.get(name);
+			Class dstClass = p.getClass(dstClassName);
+			dstClass.setAttribute(m);
+		} else {
+			Class srcClass = p.getClass(srcClassName);
+			Class dstClass = p.getClass(dstClassName);
+
+			// move related attributes
+			DependencyResolver.resolve(srcClass, dstClass, name, logManager);
+		}
+		load();
+	}
+
+	public void process(JSONObject record) {
+		String actionType = (String) record.get("actionType");
+		String elementType = (String) record.get("elementType");
+		String name = (String) record.get("name");
+		if (actionType.equals("add")) {
+			add(elementType, name);
+		} else {
+			String srcClassName = (String) record.get("srcClass");
+			String dstClassName = (String) record.get("dstClass");
+			move(elementType, name, srcClassName, dstClassName);
+		}
+	}
+
+	private static JSONObject readJson(String filepath) {
+		Object ob = new Object();
+		try {
+			ob = new JSONParser().parse(new FileReader(filepath));
+		} catch (FileNotFoundException e) {
+			System.out.println("File isn't found.");
+		} catch (ParseException e) {
+			System.out.println("Error parse.");
+		} catch (IOException e) {
+			System.out.println("IOException occurred.");
+		}
+		JSONObject jo = (JSONObject) ob;
+		return jo;
+	}
+
+	public JSONArray loadLog() {
+		JSONObject logJsonObject = readJson("/home/kentaroishii/eclipse-workspace/sample/core/data/log2.json");
+		return (JSONArray) logJsonObject.get("log");
+	}
+
+	public void play() {
+		JSONArray log = loadLog();
+		for (int i=0; i<log.size(); i++) {
+			JSONObject record = (JSONObject) log.get(i);
+			String type = (String) record.get("type");
+			if (type.equals("normal")) {
+				process(record);
+			} else if (type.equals("alt")) {
+				processAlt(record);
+			} else if (type.equals("par")) {
+				processPar(record);
+			}
+		}
+	}
+
+	public void processAlt(JSONObject record) {
+		JSONArray options = (JSONArray) record.get("contents");
+		JSONObject selectedRecord = (JSONObject) options.get(0);
+		process(selectedRecord);
+	}
+
+	public void processPar(JSONObject record) {
+		JSONArray options = (JSONArray) record.get("contents");
+		for(Object recordObj: options) {
+			JSONObject tmpRecord = (JSONObject) recordObj;
+			process(tmpRecord);
+		}
 	}
 
 	public void load() {

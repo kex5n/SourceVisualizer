@@ -1,0 +1,50 @@
+{ 
+	"log": [ 
+		{
+			"type": "normal",
+			"actionType": "add",
+			"elementType": "method",
+			"name": "hoshitsu"
+		},
+		{
+			"type": "normal",
+			"actionType": "add",
+			"elementType": "class",
+			"name": "kadou"
+		},
+		{
+			"type": "par",
+			"contents": [ 
+				{
+					"actionType": "move",
+					"elementType": "method",
+					"name": "yuwakashi",
+					"srcClass": "",
+					"dstClass": "kadou"
+				},
+				{ 
+					"actionType": "move",
+					"elementType": "method",
+					"name": "hoon",
+					"srcClass": "",
+					"dstClass": "kadou"
+				}
+			]
+		},
+		{ 
+			"type": "alt",
+			"contents": [ 
+				{ 
+					"actionType": "add",
+					"elementType": "method",
+					"name": "yuwakashihenoseni"
+				},
+				{ 
+					"actionType": "add",
+					"elementType": "method",
+					"name": "hoonhenoseni"
+				}
+			]
+		}
+	]
+}
