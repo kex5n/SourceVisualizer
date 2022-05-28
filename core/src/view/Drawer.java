@@ -204,6 +204,14 @@ public class Drawer {
 					System.exit(1);
 				}
 			}
+			if (dstClass.has(externalDependency.getSrcName()) & dstClass.has(externalDependency.getDstName())) {
+				srcClass.removeExternalDependency(externalDependency);
+				try {
+					dstClass.setInternalDependencies(externalDependency.getSrcName(), externalDependency.getDstName());
+				} catch(Exception e) {
+					System.exit(1);
+				}
+			}
 		}
 
 		// 3. 移動先のクラスのうち、外部依存関係だったものが移動により内部依存関係になった場合、外部依存関係を削除し、内部依存関係に追加する。
@@ -213,6 +221,14 @@ public class Drawer {
 				dstClass.removeExternalDependency(externalDependency);
 				try {
 					dstClass.setInternalDependencies(externalDependency.getSrcName(), externalDependency.getDstName());
+				} catch(Exception e) {
+					System.exit(1);
+				}
+			}
+			if (srcClass.has(externalDependency.getSrcName()) & srcClass.has(externalDependency.getDstName())) {
+				dstClass.removeExternalDependency(externalDependency);
+				try {
+					srcClass.setInternalDependencies(externalDependency.getSrcName(), externalDependency.getDstName());
 				} catch(Exception e) {
 					System.exit(1);
 				}
@@ -822,6 +838,10 @@ public class Drawer {
 					dstBox = leftPropertyBoxMap.get(dstName);
 				}
 				srcPoint = srcBox.getLeftConnectionPoints(1).get(0);
+				if (dstBox == null) {
+					System.out.println(dstName);
+					System.out.println(srcName);
+				}
 				dstPoint = dstBox.getRightConnectionPoints(1).get(0);
 			}
 			externalDependencyVector.add(new DependencyVector(srcPoint, dstPoint, 0, false));
