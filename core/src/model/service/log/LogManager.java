@@ -19,45 +19,8 @@ public class LogManager {
 		currentUseLogArray = wholeLogArray;
 	}
 
-	public void recordMoveLog(
-			Class srcClass,
-			Class dstClass,
-			Attribute srcAttribute,
-			HashSet<Attribute> relatedAttributes,
-			HashSet<ExternalDependency> externalDependenies
-	) {
-		MoveLog moveLog = new MoveLog(
-			srcAttribute.getName(), srcClass.getName(), dstClass.getName()
-		);
-		ArrayList<MoveLog> autoMoveLogs = createAutoMoveLogs(srcClass, dstClass, relatedAttributes);
-		moveLog.setAutoMoveArray(autoMoveLogs);
-
-		ArrayList<GeneratedLog> Generatedlogs = createGeneratedLogs(srcClass, dstClass, externalDependenies);
-		moveLog.setGeneratedLogArray(Generatedlogs);
+	public void recordMoveLog(MoveLog moveLog) {
 		currentUseLogArray.add(moveLog);
-	}
-
-	public ArrayList<MoveLog> createAutoMoveLogs(Class srcClass, Class dstClass, HashSet<Attribute> attributes) {
-		ArrayList<MoveLog> autoMoveLogs = new ArrayList<MoveLog>();
-		for (Attribute a: attributes) {
-			autoMoveLogs.add(new MoveLog(a.getName(), srcClass.getName(), dstClass.getName()));
-		}
-		return autoMoveLogs;
-	}
-
-	public ArrayList<GeneratedLog> createGeneratedLogs(Class srcClass, Class dstClass, HashSet<ExternalDependency> externalDependenies) {
-		ArrayList<GeneratedLog> generatedLogs = new ArrayList<GeneratedLog>();
-		for (ExternalDependency d: externalDependenies){
-			generatedLogs.add(
-				new GeneratedLog(
-					srcClass.getName(),
-					dstClass.getName(),
-					d.getSrcName(), 
-					d.getDstName()
-				)
-			);
-		}
-		return generatedLogs;
 	}
 
 	public ArrayList<Log> getCurrentUseLogArray(){

@@ -7,7 +7,8 @@ import java.util.HashSet;
 public class Class extends Module {
 	public Class() {};
 	public Class(
-			String name, HashSet<Property> properties, HashSet<Method> methods) {
+			String name, HashSet<Property> properties, HashSet<Method> methods
+	) {
 		this.name = name;
 		this.properties = properties;
 		this.methods = methods;
@@ -21,6 +22,26 @@ public class Class extends Module {
 		this.internalDependencies = new ArrayList<InternalDependency>();
 		this.externalDependencies = new ArrayList<ExternalDependency>();
 	};
+	public Class(
+		String name,
+		HashSet<Property> properties,
+		HashSet<Method> methods,
+		ArrayList<InternalDependency> internalDependencies,
+		ArrayList<ExternalDependency> externalDependencies
+	) {
+		this.name = name;
+		this.properties = properties;
+		this.methods = methods;
+		this.internalDependencies = internalDependencies;
+		this.externalDependencies = externalDependencies;
+		this.attributeMap = new HashMap<String, Attribute>();
+		for (Property p: properties) {
+			this.attributeMap.put(p.getName(), p);
+		}
+		for (Method m: methods) {
+			this.attributeMap.put(m.getName(), m);
+		}
+	}
 	public Class(String name) {
 		this.name = name;
 		this.properties = new HashSet<Property>();
@@ -144,7 +165,30 @@ public class Class extends Module {
 	}
 
 	public Class clone() {
-		Class c = new Class(this.name, (HashSet<Property>) this.properties.clone(), (HashSet<Method>) this.methods.clone());
+		HashSet<Property> newProperties = new HashSet<Property>();
+		for (Property p: this.properties) {
+			newProperties.add(p.clone());
+		}
+		HashSet<Method> newMethods = new HashSet<Method>();
+		for (Method m: this.methods) {
+			newMethods.add(m.clone());
+		}
+		ArrayList<InternalDependency> newInternalDependencies = new ArrayList<InternalDependency>();
+		for (InternalDependency d: this.internalDependencies) {
+			newInternalDependencies.add(d.clone());
+		}
+		ArrayList<ExternalDependency> newExternalDependencies = new ArrayList<ExternalDependency>();
+		for (ExternalDependency d: this.externalDependencies) {
+			newExternalDependencies.add(d.clone());
+		}
+		
+		Class c = new Class(
+			this.name,
+			newProperties,
+			newMethods,
+			newInternalDependencies,
+			newExternalDependencies
+		);
 		return c;
 	}
 }

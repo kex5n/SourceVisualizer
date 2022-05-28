@@ -7,6 +7,7 @@ import model.domain.Attribute;
 import model.domain.Class;
 import model.domain.ExternalDependency;
 import model.service.log.LogManager;
+import model.service.log.MoveLog;
 import model.service.log.Log;
 import model.service.log.AltLog;
 
@@ -21,14 +22,9 @@ public class Player {
 		isRollbacking = false;
 		logManager = new LogManager();
 	}
-	public void recordMove(
-		Class srcClass,
-		Class dstClass,
-		Attribute srcAttribute,
-		HashSet<Attribute> relatedAttributes,
-		HashSet<ExternalDependency> externalDependenies
-	) {
-		logManager.recordMoveLog(srcClass, dstClass, srcAttribute, relatedAttributes, externalDependenies);
+
+	public void recordMoveLog(MoveLog moveLog) {
+		logManager.recordMoveLog(moveLog);
 		logArrayIndex++;
 	}
 	public String getLogText() {
@@ -51,6 +47,7 @@ public class Player {
 				isRollbacking = false;
 				rollbackStartLog = null;
 			}
+			logArrayIndex = nextIndex;
 			return nextLog;
 		}
 	}
@@ -60,13 +57,16 @@ public class Player {
 		rollbackStartLog = currentUseLogArray.get(logArrayIndex);
 		logArrayIndex--;
 		if (logArrayIndex >= 0) {
-			ArrayList<Log> returnLogArray = new ArrayList<Log>();
-			for (int i=0; i < logArrayIndex + 1; i++) {
-				returnLogArray.add(currentUseLogArray.get(i));
-			}
-			return returnLogArray;
+			return getCurrentValidLogArray();
 		} else {
 			return new ArrayList<Log>();
 		}
+	}
+	public ArrayList<Log> getCurrentValidLogArray(){
+		ArrayList<Log> returnLogArray = new ArrayList<Log>();
+		for (int i=0; i < logArrayIndex + 1; i++) {
+			returnLogArray.add(logManager.getCurrentUseLogArray().get(i));
+		}
+		return returnLogArray;
 	}
 }

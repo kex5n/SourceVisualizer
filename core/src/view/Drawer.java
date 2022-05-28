@@ -3,9 +3,12 @@ package view;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Queue;
+import java.util.Collections;
 
 import model.domain.Class;
 import model.domain.Package;
@@ -17,6 +20,7 @@ import model.domain.ExternalDependency;
 import model.service.AttributeTransferer;
 import model.service.DependencyResolver;
 import model.service.Player;
+import model.service.StringSort;
 import model.service.log.Log;
 import model.service.log.NormalLog;
 import model.service.log.AddLog;
@@ -135,20 +139,100 @@ public class Drawer {
 		return player.rollback();
 	}
 
-	public void move(String elementType, String name, String srcClassName, String dstClassName) {
-		// define srcClass and dstClass
-		if (srcClassName.equals("")) {
-			Method m = aloneMethods.get(name);
-			Class dstClass = p.getClass(dstClassName);
-			dstClass.setAttribute(m);
-		} else {
-			Class srcClass = p.getClass(srcClassName);
-			Class dstClass = p.getClass(dstClassName);
-
-			// move related attributes
-			DependencyResolver.resolve(srcClass, dstClass, name, player);
-		}
+	public void move(
+		MoveLog moveLog
+	) {
+		processMove(moveLog);
+		player.recordMoveLog(moveLog);
 		load();
+	}
+
+	public void processMove(MoveLog moveLog) {
+		String srcAttributeName = moveLog.getName();
+		Class srcClass = p.getClass(moveLog.getSrcClassName());
+		Class dstClass = p.getClass(moveLog.getDstClassName());
+
+		Attribute a = srcClass.getAttribute(srcAttributeName);
+		ArrayList<InternalDependency> srcInternalDependencyArray;
+		HashSet<InternalDependency> visitedSrcInternalDependencySet;
+		ArrayList<InternalDependency> dstInternalDependencyArray;
+		ArrayList<ExternalDependency> externalDependencyArray;
+
+		// 1. 内部依存関係のうち、移動するAttributeがsrcであるとき、dstも合わせて移す。
+		HashSet<Attribute> moveAttribute = new HashSet<Attribute>();  // 移動するAttribute
+		HashSet<InternalDependency> moveInternalDependency = new HashSet<InternalDependency>();  // 移動する内部依存関係
+		HashSet<String> visitedAttributeName = new HashSet<String>();
+		Queue<Attribute> candidates = new ArrayDeque<Attribute>();  // 依存関係を調べるAttributeの候補
+		candidates.add(a);
+		while (candidates.size() > 0) {  // 候補がなくなり、探索が完了するまで繰り返す
+			Attribute currentAttribute = candidates.poll();
+			moveAttribute.add(currentAttribute);
+			visitedAttributeName.add(a.getName());
+			srcInternalDependencyArray = srcClass.getSrcInternalDependencies(currentAttribute);
+			moveInternalDependency.addAll(srcInternalDependencyArray);
+			for (InternalDependency d: srcInternalDependencyArray) {
+				String dstName = d.getDstName();
+				if (!visitedAttributeName.contains(dstName)) {
+					candidates.add(srcClass.getAttribute(dstName));
+				}
+			}
+			moveAttribute.add(currentAttribute);
+		}
+		// Attributeを移す
+		for (Attribute moveA: moveAttribute) {
+			srcClass.removeAttribute(moveA.getName());
+			dstClass.setAttribute(moveA);
+		}
+		// 内部依存関係を移す
+		for (InternalDependency d: moveInternalDependency) {
+			srcClass.removeInternalDependency(d);
+			try {
+				dstClass.setInternalDependencies(d.getSrcName(), d.getDstName());
+			} catch(Exception e) {
+				System.exit(1);
+			}
+		}
+
+		// 2. 元のクラスのうち、外部依存関係だったものが移動により内部依存関係になった場合、外部依存関係を削除し、内部依存関係に追加する。
+		ArrayList<ExternalDependency> srcCurrentExternalDependencies = (ArrayList<ExternalDependency>) srcClass.getExternalDependencies().clone();
+		for (ExternalDependency externalDependency: srcCurrentExternalDependencies) {
+			if (srcClass.has(externalDependency.getSrcName()) & srcClass.has(externalDependency.getDstName())) {
+				srcClass.removeExternalDependency(externalDependency);
+				try {
+					srcClass.setInternalDependencies(externalDependency.getSrcName(), externalDependency.getDstName());
+				} catch(Exception e) {
+					System.exit(1);
+				}
+			}
+		}
+
+		// 3. 移動先のクラスのうち、外部依存関係だったものが移動により内部依存関係になった場合、外部依存関係を削除し、内部依存関係に追加する。
+		ArrayList<ExternalDependency> dstCurrentExternalDependencies = (ArrayList<ExternalDependency>) dstClass.getExternalDependencies().clone();
+		for (ExternalDependency externalDependency: dstCurrentExternalDependencies) {
+			if (dstClass.has(externalDependency.getSrcName()) & dstClass.has(externalDependency.getDstName())) {
+				dstClass.removeExternalDependency(externalDependency);
+				try {
+					dstClass.setInternalDependencies(externalDependency.getSrcName(), externalDependency.getDstName());
+				} catch(Exception e) {
+					System.exit(1);
+				}
+			}
+		}
+
+		// 4. 移ったAttributeのうち、元のクラスに残ったAttributeに依存されている場合、外部依存関係とする。
+		HashSet<ExternalDependency> externalDependencies = new HashSet<ExternalDependency>();
+		ArrayList<InternalDependency> srcCurrentInternalDependencies = (ArrayList<InternalDependency>) srcClass.getInternalDependencies().clone();
+		for (InternalDependency internalDependency: srcCurrentInternalDependencies) {
+			if (internalDependency.getDstName().equals(a.getName())) {
+				srcClass.removeInternalDependency(internalDependency);
+				try {
+					srcClass.setExternalDependencies(internalDependency.getSrcName(), dstClass, internalDependency.getDstName());
+					externalDependencies.add(new ExternalDependency(internalDependency.getSrcName(), dstClass.getName(), internalDependency.getDstName()));
+				} catch(Exception e) {
+					System.exit(1);
+				}
+			}
+		}
 	}
 
 	public void process(Log logElement) {
@@ -156,11 +240,7 @@ public class Drawer {
 			NormalLog normalLogElement = (NormalLog) logElement;
 			if (normalLogElement.getActionType().equals("move")) {
 				MoveLog moveLogElement = (MoveLog) normalLogElement;
-				String elementType = moveLogElement.getElementType();
-				String name = moveLogElement.getName();
-				String srcClassName = moveLogElement.getSrcClassName();
-				String dstClassName = moveLogElement.getDstClassName();
-				move(elementType, name, srcClassName, dstClassName);
+				processMove(moveLogElement);
 			} else {
 				AddLog addLogElement = (AddLog) normalLogElement;
 				String elementType = addLogElement.getElementType();
@@ -189,28 +269,6 @@ public class Drawer {
 		JSONObject logJsonObject = readJson("/home/kentaroishii/eclipse-workspace/sample/core/data/log2.json");
 		return (JSONArray) logJsonObject.get("log");
 	}
-
-//	private Player player = new Player();
-//
-//	public void forward() {
-//		LogHistory nextLog = player.getNextLog();
-//		process(nextLog);
-//	}
-
-//	public void play() {
-//		JSONArray log = loadLog();
-//		for (int i=0; i<log.size(); i++) {
-//			JSONObject record = (JSONObject) log.get(i);
-//			String type = (String) record.get("type");
-//			if (type.equals("normal")) {
-//				process(record);
-//			} else if (type.equals("alt")) {
-//				processAlt(record);
-//			} else if (type.equals("par")) {
-//				processPar(record);
-//			}
-//		}
-//	}
 
 //	public void processAlt(JSONObject record) {
 //		JSONArray options = (JSONArray) record.get("contents");
@@ -279,14 +337,66 @@ public class Drawer {
 		}
 		for (final PropertyBox pb: leftPropertyBoxMap.values()) {
 			stage.addActor(pb);
-			if (!pb.getIsRemoved()) {
-				setDragAndDropFunction(pb, rightClassBox);
-			}
 		}
 		for (final PropertyBox pb: rightPropertyBoxMap.values()) {
 			stage.addActor(pb);
-			if (!pb.getIsRemoved()) {
-				setDragAndDropFunction(pb, leftClassBox);
+		}
+		moveHistoryVectorArray = new ArrayList<MoveHistoryVector>();
+		ArrayList<Log> currentValidLogArray = player.getCurrentValidLogArray();
+		for (Log currentLog: currentValidLogArray) {
+			if (currentLog instanceof MoveLog) {
+				MoveLog currentMoveLog = (MoveLog) currentLog;
+				String mainMoveSrcClassName = currentMoveLog.getSrcClassName();
+				String mainMoveAttributeName = currentMoveLog.getName();
+				if (mainMoveSrcClassName.equals(leftClass.getName())) {
+					MethodBox movedBox = leftMethodBoxMap.get(mainMoveAttributeName);
+					MethodBox toBox = rightMethodBoxMap.get(mainMoveAttributeName);
+					MoveHistoryVector moveHistoryVector = new MoveHistoryVector(
+							movedBox.getRightConnectionPoints(1).get(0), toBox.getLeftConnectionPoints(1).get(0)
+					);
+					moveHistoryVectorArray.add(moveHistoryVector);
+					for (MoveLog autoMovedHistory: currentMoveLog.getAutoMoveArray()) {
+						String autoMovedAttributeName = autoMovedHistory.getName();
+						Boolean isMethod = leftMethodBoxMap.containsKey(autoMovedAttributeName);
+						Box autoMovedBox;
+						Box autoToBox;
+						if (isMethod) {
+							autoMovedBox = leftMethodBoxMap.get(autoMovedAttributeName);
+							autoToBox = rightMethodBoxMap.get(autoMovedAttributeName);
+						} else {
+							autoMovedBox = leftPropertyBoxMap.get(autoMovedAttributeName);
+							autoToBox = rightPropertyBoxMap.get(autoMovedAttributeName);
+						}
+						MoveHistoryVector autoMoveHistoryVector = new MoveHistoryVector(
+								autoMovedBox.getRightConnectionPoints(1).get(0), autoToBox.getLeftConnectionPoints(1).get(0)
+						);
+						moveHistoryVectorArray.add(autoMoveHistoryVector);
+					}
+				} else {
+					MethodBox movedBox = rightMethodBoxMap.get(mainMoveAttributeName);
+					MethodBox toBox = leftMethodBoxMap.get(mainMoveAttributeName);
+					MoveHistoryVector moveHistoryVector = new MoveHistoryVector(
+							movedBox.getLeftConnectionPoints(1).get(0), toBox.getRightConnectionPoints(1).get(0)
+					);
+					moveHistoryVectorArray.add(moveHistoryVector);
+					for (MoveLog autoMovedHistory: currentMoveLog.getAutoMoveArray()) {
+						String autoMovedAttributeName = autoMovedHistory.getName();
+						Boolean isMethod = rightMethodBoxMap.containsKey(autoMovedAttributeName);
+						Box autoMovedBox;
+						Box autoToBox;
+						if (isMethod) {
+							autoMovedBox = rightMethodBoxMap.get(autoMovedAttributeName);
+							autoToBox = leftMethodBoxMap.get(autoMovedAttributeName);
+						} else {
+							autoMovedBox = rightPropertyBoxMap.get(autoMovedAttributeName);
+							autoToBox = leftPropertyBoxMap.get(autoMovedAttributeName);
+						}
+						MoveHistoryVector autoMoveHistoryVector = new MoveHistoryVector(
+								autoMovedBox.getLeftConnectionPoints(1).get(0), autoToBox.getRightConnectionPoints(1).get(0)
+						);
+						moveHistoryVectorArray.add(autoMoveHistoryVector);
+					}
+				}
 			}
 		}
 	}
@@ -324,6 +434,7 @@ public class Drawer {
             public void clicked(InputEvent event, float x, float y) {
 				Log logElement = forward();
 				process(logElement);
+				load();
             }
 		});
 
@@ -385,64 +496,9 @@ public class Drawer {
 				}
 
 				// move related attributes
-				DependencyResolver.resolve(srcClass, dstClass, srcName, player);
+				MoveLog moveLog = DependencyResolver.resolve(srcClass, dstClass, srcName);
+				move(moveLog);
 				load();
-
-				moveHistoryVectorArray = new ArrayList<MoveHistoryVector>();
-//				for (TransferLog log: logManager.getTransferLogs()) {
-//					LogHistory mainMove = log.getMainMove();
-//					String mainMoveSrcClassName = mainMove.getSrcClassName();
-//					String mainMoveAttributeName = mainMove.getAttributeName();
-//					if (mainMoveSrcClassName.equals(leftClass.getName())) {
-//						MethodBox movedBox = leftMethodBoxMap.get(mainMoveAttributeName);
-//						MethodBox toBox = rightMethodBoxMap.get(mainMoveAttributeName);
-//						MoveHistoryVector moveHistoryVector = new MoveHistoryVector(
-//								movedBox.getRightConnectionPoints(1).get(0), toBox.getLeftConnectionPoints(1).get(0)
-//						);
-//						moveHistoryVectorArray.add(moveHistoryVector);
-//						for (LogHistory autoMovedHistory: log.getAutoMoves()) {
-//							String autoMovedAttributeName = autoMovedHistory.getAttributeName();
-//							Boolean isMethod = leftMethodBoxMap.containsKey(autoMovedAttributeName);
-//							Box autoMovedBox;
-//							Box autoToBox;
-//							if (isMethod) {
-//								autoMovedBox = leftMethodBoxMap.get(autoMovedAttributeName);
-//								autoToBox = rightMethodBoxMap.get(autoMovedAttributeName);
-//							} else {
-//								autoMovedBox = leftPropertyBoxMap.get(autoMovedAttributeName);
-//								autoToBox = rightPropertyBoxMap.get(autoMovedAttributeName);
-//							}
-//							MoveHistoryVector autoMoveHistoryVector = new MoveHistoryVector(
-//									autoMovedBox.getRightConnectionPoints(1).get(0), autoToBox.getLeftConnectionPoints(1).get(0)
-//							);
-//							moveHistoryVectorArray.add(autoMoveHistoryVector);
-//						}
-//					} else {
-//						MethodBox movedBox = rightMethodBoxMap.get(mainMoveAttributeName);
-//						MethodBox toBox = leftMethodBoxMap.get(mainMoveAttributeName);
-//						MoveHistoryVector moveHistoryVector = new MoveHistoryVector(
-//								movedBox.getLeftConnectionPoints(1).get(0), toBox.getRightConnectionPoints(1).get(0)
-//						);
-//						moveHistoryVectorArray.add(moveHistoryVector);
-//						for (LogHistory autoMovedHistory: log.getAutoMoves()) {
-//							String autoMovedAttributeName = autoMovedHistory.getAttributeName();
-//							Boolean isMethod = rightMethodBoxMap.containsKey(autoMovedAttributeName);
-//							Box autoMovedBox;
-//							Box autoToBox;
-//							if (isMethod) {
-//								autoMovedBox = rightMethodBoxMap.get(autoMovedAttributeName);
-//								autoToBox = leftMethodBoxMap.get(autoMovedAttributeName);
-//							} else {
-//								autoMovedBox = rightPropertyBoxMap.get(autoMovedAttributeName);
-//								autoToBox = leftPropertyBoxMap.get(autoMovedAttributeName);
-//							}
-//							MoveHistoryVector autoMoveHistoryVector = new MoveHistoryVector(
-//									autoMovedBox.getLeftConnectionPoints(1).get(0), autoToBox.getRightConnectionPoints(1).get(0)
-//							);
-//							moveHistoryVectorArray.add(autoMoveHistoryVector);
-//						}
-//					}
-//				}
 			}
 
 			@Override
@@ -616,7 +672,15 @@ public class Drawer {
 	}
 	private HashMap<String, MethodBox> createMethodBoxMap(Box baseBox, Class c, Class defaultClass) {
 		HashSet<Method> wholeMethodSet = c.getMethods();
-		wholeMethodSet.addAll(defaultClass.getMethods());
+		ArrayList<String> methodNames = new ArrayList<String>();
+		for (Method m: wholeMethodSet) {
+			methodNames.add(m.getName());
+		}
+		for (Method m: defaultClass.getMethods()) {
+			if (!methodNames.contains(m.getName())) {
+				wholeMethodSet.add(m);
+			}
+		}
 		int numMethods = wholeMethodSet.size();
 
 		Box methodRegion = new Box(baseBox.getLeftBottomPoint(), baseBox.getWidth(), baseBox.getHeight() / 2);
@@ -625,7 +689,12 @@ public class Drawer {
 
 		HashMap<String, MethodBox> methodBoxMap = new HashMap<String, MethodBox>();
 		int count = 0;
+		ArrayList<Method> tempMethodArray = new ArrayList<Method>();
 		for (Method m: wholeMethodSet) {
+			tempMethodArray.add(m);
+		}
+		Collections.sort(tempMethodArray);
+		for (Method m: tempMethodArray) {
 			String name = m.getName();
 			Point startPoint = new Point(
 					methodBoxXValue,
@@ -639,7 +708,15 @@ public class Drawer {
 
 	private HashMap<String, PropertyBox> createPropertyBoxMap(Box baseBox, Class c, Class defaultClass) {
 		HashSet<Property> wholePropertySet = c.getProperties();
-		wholePropertySet.addAll(defaultClass.getProperties());
+		ArrayList<String> propertyNames = new ArrayList<String>();
+		for (Property p: wholePropertySet) {
+			propertyNames.add(p.getName());
+		}
+		for (Property p: defaultClass.getProperties()) {
+			if (!propertyNames.contains(p.getName())) {
+				wholePropertySet.add(p);
+			}
+		}
 		int numProperties = wholePropertySet.size();
 
 		Point baseBoxStartPoint = baseBox.getLeftBottomPoint();
@@ -650,17 +727,17 @@ public class Drawer {
 
 		HashMap<String, PropertyBox> propertyBoxMap = new HashMap<String, PropertyBox>();
 		int count = 0;
+		ArrayList<Property> tempPropertyArray = new ArrayList<Property>();
 		for (Property p: wholePropertySet) {
+			tempPropertyArray.add(p);
+		}
+		Collections.sort(tempPropertyArray);
+		for (Property p: tempPropertyArray) {
 			String name = p.getName();
 			Point startPoint = new Point(
 					propertyBoxXValue,
 					propertyRegion.getLeftBottomPoint().y + propertyRegion.getHeight() - interval * (count + 1) - PropertyBox.PROPERTY_BOX_HEIGHT / 2);
 			final PropertyBox propertyBox = new PropertyBox(startPoint, p.getName(), !c.has(p.getName()));
-			propertyBox.addListener(new DragListener() {
-				public void drag(InputEvent event, float x, float y, int pointer) {
-					propertyBox.moveBy(x - propertyBox.getWidth() / 2, y - propertyBox.getHeight() / 2);
-				}
-				});
 			propertyBoxMap.put(name, propertyBox);
 			count++;
 		}

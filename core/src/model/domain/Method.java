@@ -1,6 +1,8 @@
 package model.domain;
 
-public class Method extends Attribute {
+import model.service.StringSort;
+
+public class Method extends Attribute implements Comparable<Method> {
 	public Method() {};
 	public Method(String name, int argcnt) {
 		this.name = name;
@@ -25,5 +27,18 @@ public class Method extends Attribute {
 	}
 	public String toString() {
 		return "name: " + name + ", argcnt: " + argcnt;
+	}
+
+	public int hashCode() {
+		return name.hashCode() + argcnt;
+	}
+	
+	@Override
+	public int compareTo(Method m){
+		return StringSort.compareStrings(this.getName(), m.getName());
+	}
+
+	public Method clone() {
+		return new Method(this.name, this.argcnt);
 	}
 }

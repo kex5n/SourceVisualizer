@@ -32,4 +32,8 @@ public class InternalDependency {
 	public int hashCode() {
         return this.getSrcName().hashCode() + this.getDstName().hashCode();
     }
+
+	public InternalDependency clone() {
+		return new InternalDependency(this.srcName, this.dstName);
+	}
 }

@@ -42,4 +42,8 @@ public class ExternalDependency {
 	public int hashCode() {
         return this.getSrcName().hashCode() + this.getDstName().hashCode();
     }
+
+	public ExternalDependency clone() {
+		return new ExternalDependency(this.srcName, this.dstClassName, this.dstName);
+	}
 }

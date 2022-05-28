@@ -1,7 +1,6 @@
 package model.service;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Queue;
 import java.util.ArrayDeque;
@@ -10,10 +9,14 @@ import model.domain.Class;
 import model.domain.InternalDependency;
 import model.domain.ExternalDependency;
 import model.domain.Attribute;
-import model.service.Player;
+import model.service.log.GeneratedLog;
+import model.service.log.MoveLog;
 
 public class DependencyResolver {
-	public static void resolve(Class srcClass, Class dstClass, String srcAttributeName, Player player) {
+	public static MoveLog resolve(Class originalSrcClass, Class originalDstClass, String srcAttributeName) {
+		Class srcClass = originalSrcClass.clone();
+		Class dstClass = originalDstClass.clone();
+	
 		Attribute a = srcClass.getAttribute(srcAttributeName);
 		ArrayList<InternalDependency> srcInternalDependencyArray;
 		HashSet<InternalDependency> visitedSrcInternalDependencySet;
@@ -95,8 +98,50 @@ public class DependencyResolver {
 				}
 			}
 		}
-		player.recordMove(
+		return createMoveLog(
 			srcClass, dstClass, a, moveAttribute, externalDependencies
 		);
+	}
+
+	private static MoveLog createMoveLog(
+			Class srcClass,
+			Class dstClass,
+			Attribute srcAttribute,
+			HashSet<Attribute> relatedAttributes,
+			HashSet<ExternalDependency> externalDependenies
+	) {
+		MoveLog moveLog = new MoveLog(
+			srcAttribute.getName(), srcClass.getName(), dstClass.getName()
+		);
+		ArrayList<MoveLog> autoMoveLogs = createAutoMoveLogs(srcClass, dstClass, relatedAttributes);
+		moveLog.setAutoMoveArray(autoMoveLogs);
+
+		ArrayList<GeneratedLog> Generatedlogs = createGeneratedLogs(srcClass, dstClass, externalDependenies);
+		moveLog.setGeneratedLogArray(Generatedlogs);
+		return moveLog;
+		
+	}
+
+	private static ArrayList<MoveLog> createAutoMoveLogs(Class srcClass, Class dstClass, HashSet<Attribute> attributes) {
+		ArrayList<MoveLog> autoMoveLogs = new ArrayList<MoveLog>();
+		for (Attribute a: attributes) {
+			autoMoveLogs.add(new MoveLog(a.getName(), srcClass.getName(), dstClass.getName()));
+		}
+		return autoMoveLogs;
+	}
+
+	private static ArrayList<GeneratedLog> createGeneratedLogs(Class srcClass, Class dstClass, HashSet<ExternalDependency> externalDependenies) {
+		ArrayList<GeneratedLog> generatedLogs = new ArrayList<GeneratedLog>();
+		for (ExternalDependency d: externalDependenies){
+			generatedLogs.add(
+				new GeneratedLog(
+					srcClass.getName(),
+					dstClass.getName(),
+					d.getSrcName(), 
+					d.getDstName()
+				)
+			);
+		}
+		return generatedLogs;
 	}
 }
