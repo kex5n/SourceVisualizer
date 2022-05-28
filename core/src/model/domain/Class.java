@@ -21,6 +21,14 @@ public class Class extends Module {
 		this.internalDependencies = new ArrayList<InternalDependency>();
 		this.externalDependencies = new ArrayList<ExternalDependency>();
 	};
+	public Class(String name) {
+		this.name = name;
+		this.properties = new HashSet<Property>();
+		this.methods = new HashSet<Method>();
+		this.internalDependencies = new ArrayList<InternalDependency>();
+		this.externalDependencies = new ArrayList<ExternalDependency>();
+		this.attributeMap = new HashMap<String, Attribute>();
+	}
 
 	private String name;
 	private HashSet<Property> properties;

@@ -3,6 +3,7 @@ package com.mygdx.game;
 import java.util.ArrayList;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.Graphics.DisplayMode;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.ApplicationAdapter;
@@ -25,11 +26,12 @@ import model.service.PackageFactory;
 
 import view.Drawer;
 
+
 public class MyGdxGame extends ApplicationAdapter {
 	static SpriteBatch sharedSpriteBatch;
 	static Lwjgl3Application app;
 	static Lwjgl3Window logWindow;
-	static Lwjgl3Window configWindow;
+//	static Lwjgl3Window configWindow;
 	static ShapeRenderer shapeRenderer;
 	static Stage stage;
 
@@ -41,7 +43,6 @@ public class MyGdxGame extends ApplicationAdapter {
 		sharedSpriteBatch = new SpriteBatch();
 		shapeRenderer = new ShapeRenderer();
 		stage = new Stage();
-		Gdx.input.setInputProcessor(stage);
 
 		p = PackageFactory.create(); 
 		drawer = new Drawer(p, stage);
@@ -58,13 +59,18 @@ public class MyGdxGame extends ApplicationAdapter {
 		logWindow = app.newWindow(logListener, logConfig);
 
 		// create config window
-		Lwjgl3WindowConfiguration configConfig = new Lwjgl3WindowConfiguration();
-		DisplayMode mode = Gdx.graphics.getDisplayMode();
-		configConfig.setWindowPosition(mode.width - 640, 0);
-		configConfig.setTitle("Config");
-		configConfig.setResizable(false);
-		ApplicationListener configListener = new ConfigWindow(logMode.width, logMode.height);
-		configWindow = app.newWindow(configListener, configConfig);
+//		Lwjgl3WindowConfiguration configConfig = new Lwjgl3WindowConfiguration();
+//		DisplayMode mode = Gdx.graphics.getDisplayMode();
+//		configConfig.setWindowPosition(mode.width - 640, 0);
+//		configConfig.setTitle("Config");
+//		configConfig.setResizable(false);
+//		ConfigWindow configListener = new ConfigWindow(mode.width, mode.height);
+//		configWindow = app.newWindow(configListener, configConfig);
+
+		InputMultiplexer inputMultiplexer = new InputMultiplexer();
+		inputMultiplexer.addProcessor(stage);
+//		inputMultiplexer.addProcessor(configListener.stage);
+		Gdx.input.setInputProcessor(inputMultiplexer);
 	}
 	
 	@Override
@@ -76,6 +82,13 @@ public class MyGdxGame extends ApplicationAdapter {
 		LogWindow tempLogWindow = (LogWindow) logWindow.getListener();
 		tempLogWindow.setLogText(logText);
 
+//		ConfigWindow tempConfigWindow = (ConfigWindow) configWindow.getListener();
+//		if (tempConfigWindow.isClicked) {
+//			System.out.println("clicked!");
+//		}
+
+//		tempConfigWindow.stage.act(Gdx.graphics.getDeltaTime());
+//		tempConfigWindow.stage.draw();
 		stage.act(Gdx.graphics.getDeltaTime());
 		stage.draw();
 		drawer.draw(shapeRenderer, sharedSpriteBatch);
@@ -85,24 +98,18 @@ public class MyGdxGame extends ApplicationAdapter {
 	public void dispose () {
 		sharedSpriteBatch.dispose();
 		logWindow.closeWindow();
-		configWindow.closeWindow();
+//		configWindow.closeWindow();
 	}
 
 	@Override
 	public void resize(int width, int height) {
-		// TODO Auto-generated method stub
-		
 	}
 
 	@Override
 	public void pause() {
-		// TODO Auto-generated method stub
-		
 	}
 
 	@Override
 	public void resume() {
-		// TODO Auto-generated method stub
-		
 	}
 }

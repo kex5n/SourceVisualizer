@@ -1,8 +1,10 @@
 package view;
 
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.HashSet;
 
 import model.domain.Class;
@@ -14,7 +16,11 @@ import model.domain.InternalDependency;
 import model.domain.ExternalDependency;
 import model.service.AttributeTransferer;
 import model.service.DependencyResolver;
-import model.service.LogManager;
+import model.service.Player;
+import model.service.log.Log;
+import model.service.log.NormalLog;
+import model.service.log.AddLog;
+import model.service.log.MoveLog;
 
 import view.components.Point;
 import view.components.Box;
@@ -22,17 +28,27 @@ import view.components.ClassBox;
 import view.components.PropertyBox;
 import view.components.MethodBox;
 import view.components.DependencyVector;
+import view.components.MoveHistoryVector;
+
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.utils.DragListener;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.DragAndDrop;
 import com.badlogic.gdx.scenes.scene2d.utils.DragAndDrop.Payload;
 import com.badlogic.gdx.scenes.scene2d.utils.DragAndDrop.Source;
@@ -46,13 +62,16 @@ public class Drawer {
 	static final int RIGHT_CLASS_CENTER_HEIGHT = 100;
 
 	private Package p;
+	private Package pDefault;
+	private ArrayList<Class> classArray;
+	private HashMap<String, Method> aloneMethods;
 	private Class leftClass;
 	private Class rightClass;
 	private Class leftDefaultClass;
 	private Class rightDefaultClass;
 
 	private AttributeTransferer attributeTransferer;
-	private LogManager logManager;
+	private Player player;
 	
 	private Point leftClassBoxStartPoint;
 	private Point rightClassBoxStartPoint;
@@ -66,20 +85,151 @@ public class Drawer {
 	private ArrayList<DependencyVector> rightInternalDependencyVectorArray;
 	private ArrayList<DependencyVector> leftExternalDependencyVectorArray;
 	private ArrayList<DependencyVector> rightExternalDependencyVectorArray;
-	
+	private ArrayList<MoveHistoryVector> moveHistoryVectorArray;
+
+	private TextButton forwardButton;
+	private TextButton rollbackButton;
+
 	private Stage stage;
 	private DragAndDrop dragAndDrop;
 
 	public Drawer(Package p, Stage stage) {
 		this.p = p;
+		this.pDefault = p.clone();
 		this.stage = stage;
+		this.classArray = new ArrayList<Class>();
+		this.aloneMethods = new HashMap<String, Method>();
+		this.player = new Player();
+		this.moveHistoryVectorArray = new ArrayList<MoveHistoryVector>();
+		this.attributeTransferer = new AttributeTransferer(p.getClasses().get(0), p.getClasses().get(1));
+		initButton();
+		stage.addActor(forwardButton);
+		stage.addActor(rollbackButton);
 		load();
-		attributeTransferer = new AttributeTransferer(p.getClasses().get(0), p.getClasses().get(1));
-		logManager = new LogManager();
+		// play();
 	}
+
+	public void add(String elementType, String name) {
+		if (elementType.equals("class")) {
+			addClass(name);
+		}
+		if (elementType.equals("method")) {
+			addMethods(name);
+		}
+	}
+
+	public void addClass(String name) {
+		Class c = new Class(name);
+		this.p.setClass(c);
+	}
+
+	public void addMethods(String name) {
+		Method m = new Method(name);
+		this.aloneMethods.put(name, m);
+	}
+
+	private Log forward() {
+		return player.foward();
+	}
+	private ArrayList<Log> rollback() {
+		return player.rollback();
+	}
+
+	public void move(String elementType, String name, String srcClassName, String dstClassName) {
+		// define srcClass and dstClass
+		if (srcClassName.equals("")) {
+			Method m = aloneMethods.get(name);
+			Class dstClass = p.getClass(dstClassName);
+			dstClass.setAttribute(m);
+		} else {
+			Class srcClass = p.getClass(srcClassName);
+			Class dstClass = p.getClass(dstClassName);
+
+			// move related attributes
+			DependencyResolver.resolve(srcClass, dstClass, name, player);
+		}
+		load();
+	}
+
+	public void process(Log logElement) {
+		if (logElement.getType().equals("normal")) {
+			NormalLog normalLogElement = (NormalLog) logElement;
+			if (normalLogElement.getActionType().equals("move")) {
+				MoveLog moveLogElement = (MoveLog) normalLogElement;
+				String elementType = moveLogElement.getElementType();
+				String name = moveLogElement.getName();
+				String srcClassName = moveLogElement.getSrcClassName();
+				String dstClassName = moveLogElement.getDstClassName();
+				move(elementType, name, srcClassName, dstClassName);
+			} else {
+				AddLog addLogElement = (AddLog) normalLogElement;
+				String elementType = addLogElement.getElementType();
+				String name = addLogElement.getName();
+				add(elementType, name);
+			}
+		}
+	}
+
+	private static JSONObject readJson(String filepath) {
+		Object ob = new Object();
+		try {
+			ob = new JSONParser().parse(new FileReader(filepath));
+		} catch (FileNotFoundException e) {
+			System.out.println("File isn't found.");
+		} catch (ParseException e) {
+			System.out.println("Error parse.");
+		} catch (IOException e) {
+			System.out.println("IOException occurred.");
+		}
+		JSONObject jo = (JSONObject) ob;
+		return jo;
+	}
+
+	public JSONArray loadLog() {
+		JSONObject logJsonObject = readJson("/home/kentaroishii/eclipse-workspace/sample/core/data/log2.json");
+		return (JSONArray) logJsonObject.get("log");
+	}
+
+//	private Player player = new Player();
+//
+//	public void forward() {
+//		LogHistory nextLog = player.getNextLog();
+//		process(nextLog);
+//	}
+
+//	public void play() {
+//		JSONArray log = loadLog();
+//		for (int i=0; i<log.size(); i++) {
+//			JSONObject record = (JSONObject) log.get(i);
+//			String type = (String) record.get("type");
+//			if (type.equals("normal")) {
+//				process(record);
+//			} else if (type.equals("alt")) {
+//				processAlt(record);
+//			} else if (type.equals("par")) {
+//				processPar(record);
+//			}
+//		}
+//	}
+
+//	public void processAlt(JSONObject record) {
+//		JSONArray options = (JSONArray) record.get("contents");
+//		JSONObject selectedRecord = (JSONObject) options.get(0);
+//		process(selectedRecord);
+//	}
+//
+//	public void processPar(JSONObject record) {
+//		JSONArray options = (JSONArray) record.get("contents");
+//		for(Object recordObj: options) {
+//			JSONObject tmpRecord = (JSONObject) recordObj;
+//			process(tmpRecord);
+//		}
+//	}
 
 	public void load() {
 		stage.clear();
+		stage.addActor(forwardButton);
+		stage.addActor(rollbackButton);
 		leftClass = p.getClasses().get(0);
 		rightClass = p.getClasses().get(1);
 		if (leftDefaultClass == null) {
@@ -142,7 +292,55 @@ public class Drawer {
 	}
 
 	public String getLogText() {
-		return logManager.getLogText();
+		return player.getLogText();
+	}
+
+	private void initButton() {
+		Skin skin = new Skin();
+
+		// Generate a 1x1 white texture and store it in the skin named "white".
+		Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+		pixmap.setColor(Color.WHITE);
+		pixmap.fill();
+		skin.add("white", new Texture(pixmap));
+
+		// Store the default libGDX font under the name "default".
+		skin.add("default", new BitmapFont());
+
+		// Configure a TextButtonStyle and name it "default". Skin resources are stored by type, so this doesn't overwrite the font.
+		TextButton.TextButtonStyle textButtonStyle = new TextButton.TextButtonStyle();
+		textButtonStyle.up = skin.newDrawable("white", Color.DARK_GRAY);
+		textButtonStyle.down = skin.newDrawable("white", Color.DARK_GRAY);
+		textButtonStyle.checked = skin.newDrawable("white", Color.BLUE);
+		textButtonStyle.over = skin.newDrawable("white", Color.LIGHT_GRAY);
+		textButtonStyle.font = skin.getFont("default");
+		textButtonStyle.font.getData().setScale(10.0f);
+		skin.add("default", textButtonStyle);
+		forwardButton = new TextButton("forward", skin);
+		forwardButton.setSize(700, 150);
+		forwardButton.setPosition(10, 10);
+		forwardButton.addListener(new ClickListener() {
+			@Override
+            public void clicked(InputEvent event, float x, float y) {
+				Log logElement = forward();
+				process(logElement);
+            }
+		});
+
+		rollbackButton = new TextButton("rollback", skin);
+		rollbackButton.setSize(700, 150);
+		rollbackButton.setPosition(750, 10);
+		rollbackButton.addListener(new ClickListener() {
+			@Override
+            public void clicked(InputEvent event, float x, float y) {
+				p = pDefault.clone();
+				ArrayList<Log> logArray = rollback();
+				for (Log logElement: logArray) {
+					process(logElement);
+				}
+				load();
+            }
+		});
 	}
 
 	private void setDragAndDropFunction(Box b, ClassBox targetClassBox) {
@@ -185,9 +383,66 @@ public class Drawer {
 					srcClass = attributeTransferer.getRightClass();
 					dstClass = attributeTransferer.getLeftClass();
 				}
+
 				// move related attributes
-				DependencyResolver.resolve(srcClass, dstClass, srcName, logManager);
+				DependencyResolver.resolve(srcClass, dstClass, srcName, player);
 				load();
+
+				moveHistoryVectorArray = new ArrayList<MoveHistoryVector>();
+//				for (TransferLog log: logManager.getTransferLogs()) {
+//					LogHistory mainMove = log.getMainMove();
+//					String mainMoveSrcClassName = mainMove.getSrcClassName();
+//					String mainMoveAttributeName = mainMove.getAttributeName();
+//					if (mainMoveSrcClassName.equals(leftClass.getName())) {
+//						MethodBox movedBox = leftMethodBoxMap.get(mainMoveAttributeName);
+//						MethodBox toBox = rightMethodBoxMap.get(mainMoveAttributeName);
+//						MoveHistoryVector moveHistoryVector = new MoveHistoryVector(
+//								movedBox.getRightConnectionPoints(1).get(0), toBox.getLeftConnectionPoints(1).get(0)
+//						);
+//						moveHistoryVectorArray.add(moveHistoryVector);
+//						for (LogHistory autoMovedHistory: log.getAutoMoves()) {
+//							String autoMovedAttributeName = autoMovedHistory.getAttributeName();
+//							Boolean isMethod = leftMethodBoxMap.containsKey(autoMovedAttributeName);
+//							Box autoMovedBox;
+//							Box autoToBox;
+//							if (isMethod) {
+//								autoMovedBox = leftMethodBoxMap.get(autoMovedAttributeName);
+//								autoToBox = rightMethodBoxMap.get(autoMovedAttributeName);
+//							} else {
+//								autoMovedBox = leftPropertyBoxMap.get(autoMovedAttributeName);
+//								autoToBox = rightPropertyBoxMap.get(autoMovedAttributeName);
+//							}
+//							MoveHistoryVector autoMoveHistoryVector = new MoveHistoryVector(
+//									autoMovedBox.getRightConnectionPoints(1).get(0), autoToBox.getLeftConnectionPoints(1).get(0)
+//							);
+//							moveHistoryVectorArray.add(autoMoveHistoryVector);
+//						}
+//					} else {
+//						MethodBox movedBox = rightMethodBoxMap.get(mainMoveAttributeName);
+//						MethodBox toBox = leftMethodBoxMap.get(mainMoveAttributeName);
+//						MoveHistoryVector moveHistoryVector = new MoveHistoryVector(
+//								movedBox.getLeftConnectionPoints(1).get(0), toBox.getRightConnectionPoints(1).get(0)
+//						);
+//						moveHistoryVectorArray.add(moveHistoryVector);
+//						for (LogHistory autoMovedHistory: log.getAutoMoves()) {
+//							String autoMovedAttributeName = autoMovedHistory.getAttributeName();
+//							Boolean isMethod = rightMethodBoxMap.containsKey(autoMovedAttributeName);
+//							Box autoMovedBox;
+//							Box autoToBox;
+//							if (isMethod) {
+//								autoMovedBox = rightMethodBoxMap.get(autoMovedAttributeName);
+//								autoToBox = leftMethodBoxMap.get(autoMovedAttributeName);
+//							} else {
+//								autoMovedBox = rightPropertyBoxMap.get(autoMovedAttributeName);
+//								autoToBox = leftPropertyBoxMap.get(autoMovedAttributeName);
+//							}
+//							MoveHistoryVector autoMoveHistoryVector = new MoveHistoryVector(
+//									autoMovedBox.getLeftConnectionPoints(1).get(0), autoToBox.getRightConnectionPoints(1).get(0)
+//							);
+//							moveHistoryVectorArray.add(autoMoveHistoryVector);
+//						}
+//					}
+//				}
 			}
 
 			@Override
@@ -212,6 +467,7 @@ public class Drawer {
 		for (DependencyVector v: rightExternalDependencyVectorArray) {
 			drawExternalDependencyVector(shapeRenderer, v);
 		}
+		drawMoveHistorVector(shapeRenderer);
 
 		// draw name
 		batch.begin();
@@ -233,16 +489,16 @@ public class Drawer {
 	}
 
 	private void drawExternalDependencyVector(ShapeRenderer shapeRenderer, DependencyVector dependencyVector) {
-		int lineWidth = 40;
+		int lineWidth = 4;
 		Point startPoint = dependencyVector.getStartPoint();
 		Point endPoint = dependencyVector.getEndPoint();
 
 		shapeRenderer.begin(ShapeType.Filled);
-		shapeRenderer.setColor(Color.PURPLE);
+		shapeRenderer.setColor(Color.BLUE);
 		
 		// draw triangle
-		int height = 120;
-		int width = 56;
+		int height = 24;
+		int width = 9;
 		double diagonal = Math.sqrt(Math.pow(startPoint.x - endPoint.x, 2) + Math.pow(startPoint.y - endPoint.y, 2));
 		double cos = - (endPoint.x - startPoint.x) / diagonal;
 		double sin = - (endPoint.y - startPoint.y) / diagonal;
@@ -317,7 +573,47 @@ public class Drawer {
 		);
 		shapeRenderer.end();
 	}
+
+	private void drawMoveHistorVector(ShapeRenderer shapeRenderer) {
+		int lineWidth = 4;
+		// draw triangle
+		int height = 24;
+		int width = 9;
+		for (MoveHistoryVector moveHistoryVector: this.moveHistoryVectorArray) {
+			Point startPoint = moveHistoryVector.getStartPoint();
+			Point endPoint = moveHistoryVector.getEndPoint();
 	
+			shapeRenderer.begin(ShapeType.Filled);
+			shapeRenderer.setColor(Color.GRAY);
+			
+			
+			double diagonal = Math.sqrt(Math.pow(startPoint.x - endPoint.x, 2) + Math.pow(startPoint.y - endPoint.y, 2));
+			double cos = - (endPoint.x - startPoint.x) / diagonal;
+			double sin = - (endPoint.y - startPoint.y) / diagonal;
+			float p1X = (float) (cos * height - sin * width);
+			float p1Y = (float) (sin * height + cos * width);
+			float p2X = (float) (cos * height + sin * width);
+			float p2Y = (float) (sin * height - cos * width);
+			shapeRenderer.triangle(
+					endPoint.x,
+					endPoint.y,
+					endPoint.x + p1X,
+					endPoint.y + p1Y,
+					endPoint.x + p2X,
+					endPoint.y + p2Y
+			);
+	
+			// draw main line
+			shapeRenderer.rectLine(
+					startPoint.x,
+					startPoint.y,
+					endPoint.x + (p1X + p2X) / 2,
+					endPoint.y + (p1Y + p2Y) / 2,
+					lineWidth
+			);
+			shapeRenderer.end();
+		}
+	}
 	private HashMap<String, MethodBox> createMethodBoxMap(Box baseBox, Class c, Class defaultClass) {
 		HashSet<Method> wholeMethodSet = c.getMethods();
 		wholeMethodSet.addAll(defaultClass.getMethods());

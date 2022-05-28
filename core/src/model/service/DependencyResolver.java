@@ -10,9 +10,10 @@ import model.domain.Class;
 import model.domain.InternalDependency;
 import model.domain.ExternalDependency;
 import model.domain.Attribute;
+import model.service.Player;
 
 public class DependencyResolver {
-	public static void resolve(Class srcClass, Class dstClass, String srcAttributeName, LogManager logManager) {
+	public static void resolve(Class srcClass, Class dstClass, String srcAttributeName, Player player) {
 		Attribute a = srcClass.getAttribute(srcAttributeName);
 		ArrayList<InternalDependency> srcInternalDependencyArray;
 		HashSet<InternalDependency> visitedSrcInternalDependencySet;
@@ -94,8 +95,8 @@ public class DependencyResolver {
 				}
 			}
 		}
-		logManager.recordTransactionLog(
-				srcClass, dstClass, a, moveAttribute, externalDependencies
+		player.recordMove(
+			srcClass, dstClass, a, moveAttribute, externalDependencies
 		);
 	}
 }
