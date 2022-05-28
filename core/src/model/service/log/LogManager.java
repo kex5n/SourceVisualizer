@@ -1,6 +1,7 @@
 package model.service.log;
 
 import java.util.ArrayList;
+import java.util.Stack;
 import java.util.HashSet;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
@@ -11,27 +12,69 @@ import model.domain.ExternalDependency;
 
 
 public class LogManager {
-	private ArrayList<Log> wholeLogArray;
-	private ArrayList<Log> currentUseLogArray;
-	
+	private Stack<Log> wholeLogArray;
+	private Stack<Log> currentUseLogArray;
+	private Stack<Log> subLogArray;
+
+	public boolean subLogArrayIsEmpty() {
+		return subLogArray.isEmpty();
+	}
+	public Log forward() {
+		Log tempLog = subLogArray.pop();
+		currentUseLogArray.push(tempLog);
+		return tempLog;
+	}
+	public ArrayList<Log> rollback() {
+		Log tempLog = currentUseLogArray.pop();
+		subLogArray.push(tempLog);
+		return getCurrentUseLogArray();
+	}
 	public LogManager() {
-		wholeLogArray = new ArrayList<Log>();
+		wholeLogArray = new Stack<Log>();
 		currentUseLogArray = wholeLogArray;
+		subLogArray = new Stack<Log>();
 	}
 
 	public void recordMoveLog(MoveLog moveLog) {
-		currentUseLogArray.add(moveLog);
+		currentUseLogArray.push(moveLog);
 	}
 
 	public ArrayList<Log> getCurrentUseLogArray(){
-		return currentUseLogArray;
+		Stack<Log> tempCurrentUseLogArray = new Stack<Log>();
+		ArrayList<Log> tempReturnArray = new ArrayList<Log>();
+		while (!currentUseLogArray.isEmpty()) {
+			Log tempLog = currentUseLogArray.pop();
+			tempCurrentUseLogArray.push(tempLog);
+			tempReturnArray.add(tempLog);
+		}
+		ArrayList<Log> returnArray = new ArrayList<Log>();
+		for (int i=tempReturnArray.size() - 1; i>=0; i--) {
+			returnArray.add(tempReturnArray.get(i));
+		}
+		currentUseLogArray = tempCurrentUseLogArray;
+		return returnArray;
 	}
+
 	public void setCurrentUseLogArray(ArrayList<Log> currentUseLogArray){
-		this.currentUseLogArray = currentUseLogArray;
+		for (Log tempLog: currentUseLogArray) {
+			this.currentUseLogArray.push(tempLog);
+		}
 	}
 
 	public ArrayList<Log> getWholeLogArray(){
-		return wholeLogArray;
+		Stack<Log> tempWholeLogArray = new Stack<Log>();
+		ArrayList<Log> tempReturnArray = new ArrayList<Log>();
+		while (!wholeLogArray.isEmpty()) {
+			Log tempLog = wholeLogArray.pop();
+			tempWholeLogArray.push(tempLog);
+			tempReturnArray.add(tempLog);
+		}
+		ArrayList<Log> returnArray = new ArrayList<Log>();
+		for (int i=tempReturnArray.size() - 1; i>=0; i--) {
+			returnArray.add(tempReturnArray.get(i));
+		}
+		wholeLogArray = tempWholeLogArray;
+		return returnArray;
 	}
 
 	public String getLogText() {
@@ -72,8 +115,6 @@ public class LogManager {
 					}
 				}
 			}
-			
-			
 		}
 		return logText;
 	}

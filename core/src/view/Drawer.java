@@ -110,7 +110,6 @@ public class Drawer {
 		stage.addActor(forwardButton);
 		stage.addActor(rollbackButton);
 		load();
-		// play();
 	}
 
 	public void add(String elementType, String name) {
@@ -154,9 +153,6 @@ public class Drawer {
 
 		Attribute a = srcClass.getAttribute(srcAttributeName);
 		ArrayList<InternalDependency> srcInternalDependencyArray;
-		HashSet<InternalDependency> visitedSrcInternalDependencySet;
-		ArrayList<InternalDependency> dstInternalDependencyArray;
-		ArrayList<ExternalDependency> externalDependencyArray;
 
 		// 1. 内部依存関係のうち、移動するAttributeがsrcであるとき、dstも合わせて移す。
 		HashSet<Attribute> moveAttribute = new HashSet<Attribute>();  // 移動するAttribute

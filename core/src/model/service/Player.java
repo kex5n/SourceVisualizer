@@ -13,60 +13,38 @@ import model.service.log.AltLog;
 
 public class Player {
 	private LogManager logManager;
-	private int logArrayIndex;
-	private boolean isRollbacking;
 	private Log rollbackStartLog;
 
 	public Player() {
-		logArrayIndex = -1;
-		isRollbacking = false;
 		logManager = new LogManager();
 	}
 
 	public void recordMoveLog(MoveLog moveLog) {
-		logManager.recordMoveLog(moveLog);
-		logArrayIndex++;
+		if (logManager.subLogArrayIsEmpty()) {
+			logManager.recordMoveLog(moveLog);
+		} else {
+			System.out.println("is no't empty!");
+		}
 	}
 	public String getLogText() {
 		return logManager.getLogText();
 	}
 	public Log foward() {
-		ArrayList<Log> currentLogArray = logManager.getCurrentUseLogArray();
-		int nextIndex = logArrayIndex + 1;
-		if (nextIndex >= currentLogArray.size()) {
-			return null;
-		}
-		Log nextLog = currentLogArray.get(nextIndex);
+		Log nextLog = logManager.forward();
 		if (nextLog.getType().equals("alt")) {
-			AltLog nextAltLog = (AltLog) nextLog;
-			logManager.setCurrentUseLogArray(nextAltLog.getChildArray());
-			logArrayIndex = 0;
-			return logManager.getCurrentUseLogArray().get(logArrayIndex);
+			System.out.println("Not implement yet.");
+			return nextLog;
 		} else {
 			if (nextLog.equals(rollbackStartLog)) {
-				isRollbacking = false;
 				rollbackStartLog = null;
 			}
-			logArrayIndex = nextIndex;
 			return nextLog;
 		}
 	}
 	public ArrayList<Log> rollback() {
-		isRollbacking = true;
-		ArrayList<Log> currentUseLogArray = logManager.getCurrentUseLogArray();
-		rollbackStartLog = currentUseLogArray.get(logArrayIndex);
-		logArrayIndex--;
-		if (logArrayIndex >= 0) {
-			return getCurrentValidLogArray();
-		} else {
-			return new ArrayList<Log>();
-		}
+		return logManager.rollback();
 	}
 	public ArrayList<Log> getCurrentValidLogArray(){
-		ArrayList<Log> returnLogArray = new ArrayList<Log>();
-		for (int i=0; i < logArrayIndex + 1; i++) {
-			returnLogArray.add(logManager.getCurrentUseLogArray().get(i));
-		}
-		return returnLogArray;
+		return logManager.getCurrentUseLogArray();
 	}
 }
