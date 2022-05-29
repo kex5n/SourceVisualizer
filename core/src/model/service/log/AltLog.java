@@ -1,14 +1,16 @@
 package model.service.log;
 
 import java.util.ArrayList;
+import java.util.Stack;
 
 public class AltLog extends MetaLog {
 	private int id;
 	private String type;
-	private ArrayList<ArrayList<Log>> contents;
+	private ArrayList<Stack<Log>> contents;
 
-	public AltLog(String type) {
-		this.type = type;
+	public AltLog() {
+		this.type = "alt";
+		this.contents = new ArrayList<Stack<Log>>();
 	}
 
 	@Override
@@ -19,8 +21,11 @@ public class AltLog extends MetaLog {
 	public String getType() {
 		return type;
 	}
-	public ArrayList<Log> getChildArray(){
+	public Stack<Log> getChildArray(){
 		// 一旦最初の要素を返す。
-		return contents.get(0);
+		return contents.get(1);
+	}
+	public void addContent(Stack<Log> content) {
+		contents.add(content);
 	}
 }

@@ -20,11 +20,7 @@ public class Player {
 	}
 
 	public void recordMoveLog(MoveLog moveLog) {
-		if (logManager.subLogArrayIsEmpty()) {
-			logManager.recordMoveLog(moveLog);
-		} else {
-			System.out.println("is no't empty!");
-		}
+		logManager.recordMoveLog(moveLog);
 	}
 	public String getLogText() {
 		return logManager.getLogText();

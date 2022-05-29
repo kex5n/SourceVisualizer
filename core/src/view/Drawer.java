@@ -17,7 +17,6 @@ import model.domain.Method;
 import model.domain.Attribute;
 import model.domain.InternalDependency;
 import model.domain.ExternalDependency;
-import model.service.AttributeTransferer;
 import model.service.DependencyResolver;
 import model.service.Player;
 import model.service.StringSort;
@@ -33,6 +32,7 @@ import view.components.PropertyBox;
 import view.components.MethodBox;
 import view.components.DependencyVector;
 import view.components.MoveHistoryVector;
+import view.components.ClassViewComposer;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -59,36 +59,55 @@ import com.badlogic.gdx.scenes.scene2d.utils.DragAndDrop.Source;
 import com.badlogic.gdx.scenes.scene2d.utils.DragAndDrop.Target;
 import com.badlogic.gdx.utils.Null;
 
-public class Drawer {
-	static final int LEFT_CLASS_CENTER_WIDTH = 150;
-	static final int LEFT_CLASS_CENTER_HEIGHT = 100;
-	static final int RIGHT_CLASS_CENTER_WIDTH = 950;
-	static final int RIGHT_CLASS_CENTER_HEIGHT = 100;
+class ClassStartPointGenerator {
+	private int counter;
+	private int SPAN = 100;
+	private int HEIGHT = 100;
+	private int CLASS_BOX_WIDTH = 600;
+	public ClassStartPointGenerator() {
+		this.counter = 0;
+	}
+	public Point getCurrentStartPoint() {
+		int x = SPAN + (CLASS_BOX_WIDTH + SPAN) * counter;
+		this.counter++;
+		return new Point(x, HEIGHT);
+	}
+	public void reset() {
+		this.counter = 0;
+	}
+}
 
+public class Drawer {
+//	static final int LEFT_CLASS_CENTER_WIDTH = 150;
+//	static final int LEFT_CLASS_CENTER_HEIGHT = 100;
+//	static final int RIGHT_CLASS_CENTER_WIDTH = 950;
+//	static final int RIGHT_CLASS_CENTER_HEIGHT = 100;
+	private ClassStartPointGenerator startPointGenerator;
 	private Package p;
 	private Package pDefault;
-	private ArrayList<Class> classArray;
+//	private ArrayList<Class> classArray;
 	private HashMap<String, Method> aloneMethods;
-	private Class leftClass;
-	private Class rightClass;
-	private Class leftDefaultClass;
-	private Class rightDefaultClass;
+//	private Class leftClass;
+//	private Class rightClass;
+//	private Class leftDefaultClass;
+//	private Class rightDefaultClass;
 
-	private AttributeTransferer attributeTransferer;
+//	private AttributeTransferer attributeTransferer;
 	private Player player;
 	
-	private Point leftClassBoxStartPoint;
-	private Point rightClassBoxStartPoint;
-	private ClassBox leftClassBox;
-	private ClassBox rightClassBox;
-	private HashMap<String, MethodBox> leftMethodBoxMap;
-	private HashMap<String, MethodBox> rightMethodBoxMap;
-	private HashMap<String, PropertyBox> leftPropertyBoxMap;
-	private HashMap<String, PropertyBox> rightPropertyBoxMap;
-	private ArrayList<DependencyVector> leftInternalDependencyVectorArray;
-	private ArrayList<DependencyVector> rightInternalDependencyVectorArray;
-	private ArrayList<DependencyVector> leftExternalDependencyVectorArray;
-	private ArrayList<DependencyVector> rightExternalDependencyVectorArray;
+//	private Point leftClassBoxStartPoint;
+//	private Point rightClassBoxStartPoint;
+//	private ClassBox leftClassBox;
+//	private ClassBox rightClassBox;
+//	private HashMap<String, MethodBox> leftMethodBoxMap;
+//	private HashMap<String, MethodBox> rightMethodBoxMap;
+//	private HashMap<String, PropertyBox> leftPropertyBoxMap;
+//	private HashMap<String, PropertyBox> rightPropertyBoxMap;
+//	private ArrayList<DependencyVector> leftInternalDependencyVectorArray;
+//	private ArrayList<DependencyVector> rightInternalDependencyVectorArray;
+//	private ArrayList<DependencyVector> leftExternalDependencyVectorArray;
+//	private ArrayList<DependencyVector> rightExternalDependencyVectorArray;
+	private ArrayList<ClassViewComposer> classViewComposerArray;
 	private ArrayList<MoveHistoryVector> moveHistoryVectorArray;
 
 	private TextButton forwardButton;
@@ -98,14 +117,16 @@ public class Drawer {
 	private DragAndDrop dragAndDrop;
 
 	public Drawer(Package p, Stage stage) {
+		this.startPointGenerator = new ClassStartPointGenerator();
 		this.p = p;
 		this.pDefault = p.clone();
 		this.stage = stage;
-		this.classArray = new ArrayList<Class>();
+//		this.classArray = new ArrayList<Class>();
+		this.classViewComposerArray = new ArrayList<ClassViewComposer>();
 		this.aloneMethods = new HashMap<String, Method>();
 		this.player = new Player();
 		this.moveHistoryVectorArray = new ArrayList<MoveHistoryVector>();
-		this.attributeTransferer = new AttributeTransferer(p.getClasses().get(0), p.getClasses().get(1));
+//		this.attributeTransferer = new AttributeTransferer(p.getClasses().get(0), p.getClasses().get(1));
 		initButton();
 		stage.addActor(forwardButton);
 		stage.addActor(rollbackButton);
@@ -124,6 +145,7 @@ public class Drawer {
 	public void addClass(String name) {
 		Class c = new Class(name);
 		this.p.setClass(c);
+		this.pDefault.setClass(c);
 	}
 
 	public void addMethods(String name) {
@@ -298,119 +320,156 @@ public class Drawer {
 
 	public void load() {
 		stage.clear();
+		startPointGenerator.reset();
+		classViewComposerArray.clear();
 		stage.addActor(forwardButton);
 		stage.addActor(rollbackButton);
-		leftClass = p.getClasses().get(0);
-		rightClass = p.getClasses().get(1);
-		if (leftDefaultClass == null) {
-			leftDefaultClass = leftClass.clone();
-		}
-		if (rightDefaultClass == null) {
-			rightDefaultClass = rightClass.clone();
-		}
-
-		leftClassBoxStartPoint = new Point(LEFT_CLASS_CENTER_WIDTH, LEFT_CLASS_CENTER_HEIGHT);
-		rightClassBoxStartPoint = new Point(RIGHT_CLASS_CENTER_WIDTH, RIGHT_CLASS_CENTER_HEIGHT);
-		leftClassBox = new ClassBox(leftClassBoxStartPoint, leftClass.getName());
-		rightClassBox = new ClassBox(rightClassBoxStartPoint, rightClass.getName());
-
-		leftMethodBoxMap = createMethodBoxMap(leftClassBox, leftClass, leftDefaultClass);
-		rightMethodBoxMap = createMethodBoxMap(rightClassBox, rightClass, rightDefaultClass);
-	
-		leftPropertyBoxMap = createPropertyBoxMap(leftClassBox, leftClass, leftDefaultClass);
-		rightPropertyBoxMap = createPropertyBoxMap(rightClassBox, rightClass, rightDefaultClass);
-
-		leftInternalDependencyVectorArray = createInternalDependencyVectorArray(leftClassBox, leftPropertyBoxMap, leftMethodBoxMap, leftClass);
-		rightInternalDependencyVectorArray = createInternalDependencyVectorArray(rightClassBox, rightPropertyBoxMap, rightMethodBoxMap, rightClass);
-		leftExternalDependencyVectorArray = createExternalDependencyVectorArray(
-				leftPropertyBoxMap, leftMethodBoxMap, rightPropertyBoxMap, rightMethodBoxMap, leftClass.getExternalDependencies()
-		);
-		rightExternalDependencyVectorArray = createExternalDependencyVectorArray(
-				leftPropertyBoxMap, leftMethodBoxMap, rightPropertyBoxMap, rightMethodBoxMap, rightClass.getExternalDependencies()
-		);
-
-		// set listener
-		stage.addActor(leftClassBox);
-		stage.addActor(rightClassBox);
-
 		dragAndDrop = new DragAndDrop();
+		ArrayList<Class> classArray = p.getClasses();
+		ArrayList<Class> defaultClassArray = pDefault.getClasses();
 
-		for (final MethodBox mb: leftMethodBoxMap.values()) {
-			stage.addActor(mb);
-			if (!mb.getIsRemoved()) {
-				setDragAndDropFunction(mb, rightClassBox);
-			}
-		}
-		for (final MethodBox mb: rightMethodBoxMap.values()) {
-			stage.addActor(mb);
-			if (!mb.getIsRemoved()) {
-				setDragAndDropFunction(mb, leftClassBox);
-			}
-		}
-		for (final PropertyBox pb: leftPropertyBoxMap.values()) {
-			stage.addActor(pb);
-		}
-		for (final PropertyBox pb: rightPropertyBoxMap.values()) {
-			stage.addActor(pb);
-		}
-		moveHistoryVectorArray = new ArrayList<MoveHistoryVector>();
-		ArrayList<Log> currentValidLogArray = player.getCurrentValidLogArray();
-		for (Log currentLog: currentValidLogArray) {
-			if (currentLog instanceof MoveLog) {
-				MoveLog currentMoveLog = (MoveLog) currentLog;
-				String mainMoveSrcClassName = currentMoveLog.getSrcClassName();
-				String mainMoveAttributeName = currentMoveLog.getName();
-				if (mainMoveSrcClassName.equals(leftClass.getName())) {
-					MethodBox movedBox = leftMethodBoxMap.get(mainMoveAttributeName);
-					MethodBox toBox = rightMethodBoxMap.get(mainMoveAttributeName);
-					MoveHistoryVector moveHistoryVector = new MoveHistoryVector(
-							movedBox.getRightConnectionPoints(1).get(0), toBox.getLeftConnectionPoints(1).get(0)
-					);
-					moveHistoryVectorArray.add(moveHistoryVector);
-					for (MoveLog autoMovedHistory: currentMoveLog.getAutoMoveArray()) {
-						String autoMovedAttributeName = autoMovedHistory.getName();
-						Boolean isMethod = leftMethodBoxMap.containsKey(autoMovedAttributeName);
-						Box autoMovedBox;
-						Box autoToBox;
-						if (isMethod) {
-							autoMovedBox = leftMethodBoxMap.get(autoMovedAttributeName);
-							autoToBox = rightMethodBoxMap.get(autoMovedAttributeName);
-						} else {
-							autoMovedBox = leftPropertyBoxMap.get(autoMovedAttributeName);
-							autoToBox = rightPropertyBoxMap.get(autoMovedAttributeName);
-						}
-						MoveHistoryVector autoMoveHistoryVector = new MoveHistoryVector(
-								autoMovedBox.getRightConnectionPoints(1).get(0), autoToBox.getLeftConnectionPoints(1).get(0)
-						);
-						moveHistoryVectorArray.add(autoMoveHistoryVector);
-					}
-				} else {
-					MethodBox movedBox = rightMethodBoxMap.get(mainMoveAttributeName);
-					MethodBox toBox = leftMethodBoxMap.get(mainMoveAttributeName);
-					MoveHistoryVector moveHistoryVector = new MoveHistoryVector(
-							movedBox.getLeftConnectionPoints(1).get(0), toBox.getRightConnectionPoints(1).get(0)
-					);
-					moveHistoryVectorArray.add(moveHistoryVector);
-					for (MoveLog autoMovedHistory: currentMoveLog.getAutoMoveArray()) {
-						String autoMovedAttributeName = autoMovedHistory.getName();
-						Boolean isMethod = rightMethodBoxMap.containsKey(autoMovedAttributeName);
-						Box autoMovedBox;
-						Box autoToBox;
-						if (isMethod) {
-							autoMovedBox = rightMethodBoxMap.get(autoMovedAttributeName);
-							autoToBox = leftMethodBoxMap.get(autoMovedAttributeName);
-						} else {
-							autoMovedBox = rightPropertyBoxMap.get(autoMovedAttributeName);
-							autoToBox = leftPropertyBoxMap.get(autoMovedAttributeName);
-						}
-						MoveHistoryVector autoMoveHistoryVector = new MoveHistoryVector(
-								autoMovedBox.getLeftConnectionPoints(1).get(0), autoToBox.getRightConnectionPoints(1).get(0)
-						);
-						moveHistoryVectorArray.add(autoMoveHistoryVector);
-					}
+		// setup for each class
+		for (int i=0; i<classArray.size();i++) {
+			Class currentClass = classArray.get(i);
+			Class currentClassDefault = defaultClassArray.get(i);
+			Point startPoint = startPointGenerator.getCurrentStartPoint();
+
+			// setup class view
+			ClassBox classBox = new ClassBox(startPoint, currentClass.getName());
+			stage.addActor(classBox);
+
+			// setup method view
+			HashMap<String, MethodBox> methodBoxMap = createMethodBoxMap(classBox, currentClass, currentClassDefault);
+			for (final MethodBox mb: methodBoxMap.values()) {
+				stage.addActor(mb);
+				if (!mb.getIsRemoved()) {
+					setDragAndDropFunction(mb, classBox);
 				}
 			}
+
+			// setup property view
+			HashMap<String, PropertyBox> propertyBoxMap = createPropertyBoxMap(classBox, currentClass, currentClassDefault);
+			for (final PropertyBox pb: propertyBoxMap.values()) {
+				stage.addActor(pb);
+			}
+
+			// setup internal dependencies
+			ArrayList<DependencyVector> internalDependencyVectorArray = createInternalDependencyVectorArray(
+					classBox, propertyBoxMap, methodBoxMap, currentClass
+			);
+
+			ClassViewComposer classViewComposer = new ClassViewComposer(classBox, methodBoxMap, propertyBoxMap, internalDependencyVectorArray);
+			classViewComposerArray.add(classViewComposer);
 		}
+//		leftClass = p.getClasses().get(0);
+//		rightClass = p.getClasses().get(1);
+//		if (leftDefaultClass == null) {
+//			leftDefaultClass = leftClass.clone();
+//		}
+//		if (rightDefaultClass == null) {
+//			rightDefaultClass = rightClass.clone();
+//		}
+
+//		leftClassBoxStartPoint = new Point(LEFT_CLASS_CENTER_WIDTH, LEFT_CLASS_CENTER_HEIGHT);
+//		rightClassBoxStartPoint = new Point(RIGHT_CLASS_CENTER_WIDTH, RIGHT_CLASS_CENTER_HEIGHT);
+//		leftClassBox = new ClassBox(leftClassBoxStartPoint, leftClass.getName());
+//		rightClassBox = new ClassBox(rightClassBoxStartPoint, rightClass.getName());
+
+//		leftMethodBoxMap = createMethodBoxMap(leftClassBox, leftClass, leftDefaultClass);
+//		rightMethodBoxMap = createMethodBoxMap(rightClassBox, rightClass, rightDefaultClass);
+	
+//		leftPropertyBoxMap = createPropertyBoxMap(leftClassBox, leftClass, leftDefaultClass);
+//		rightPropertyBoxMap = createPropertyBoxMap(rightClassBox, rightClass, rightDefaultClass);
+
+//		leftInternalDependencyVectorArray = createInternalDependencyVectorArray(leftClassBox, leftPropertyBoxMap, leftMethodBoxMap, leftClass);
+//		rightInternalDependencyVectorArray = createInternalDependencyVectorArray(rightClassBox, rightPropertyBoxMap, rightMethodBoxMap, rightClass);
+//		leftExternalDependencyVectorArray = createExternalDependencyVectorArray(
+//				leftPropertyBoxMap, leftMethodBoxMap, rightPropertyBoxMap, rightMethodBoxMap, leftClass.getExternalDependencies()
+//		);
+//		rightExternalDependencyVectorArray = createExternalDependencyVectorArray(
+//				leftPropertyBoxMap, leftMethodBoxMap, rightPropertyBoxMap, rightMethodBoxMap, rightClass.getExternalDependencies()
+//		);
+
+		// set listener
+//		stage.addActor(leftClassBox);
+//		stage.addActor(rightClassBox);
+
+//		for (final MethodBox mb: leftMethodBoxMap.values()) {
+//			stage.addActor(mb);
+//			if (!mb.getIsRemoved()) {
+//				setDragAndDropFunction(mb, rightClassBox);
+//			}
+//		}
+//		for (final MethodBox mb: rightMethodBoxMap.values()) {
+//			stage.addActor(mb);
+//			if (!mb.getIsRemoved()) {
+//				setDragAndDropFunction(mb, leftClassBox);
+//			}
+//		}
+//		for (final PropertyBox pb: leftPropertyBoxMap.values()) {
+//			stage.addActor(pb);
+//		}
+//		for (final PropertyBox pb: rightPropertyBoxMap.values()) {
+//			stage.addActor(pb);
+//		}
+//		moveHistoryVectorArray = new ArrayList<MoveHistoryVector>();
+//		ArrayList<Log> currentValidLogArray = player.getCurrentValidLogArray();
+//		for (Log currentLog: currentValidLogArray) {
+//			if (currentLog instanceof MoveLog) {
+//				MoveLog currentMoveLog = (MoveLog) currentLog;
+//				String mainMoveSrcClassName = currentMoveLog.getSrcClassName();
+//				String mainMoveAttributeName = currentMoveLog.getName();
+//				if (mainMoveSrcClassName.equals(leftClass.getName())) {
+//					MethodBox movedBox = leftMethodBoxMap.get(mainMoveAttributeName);
+//					MethodBox toBox = rightMethodBoxMap.get(mainMoveAttributeName);
+//					MoveHistoryVector moveHistoryVector = new MoveHistoryVector(
+//							movedBox.getRightConnectionPoints(1).get(0), toBox.getLeftConnectionPoints(1).get(0)
+//					);
+//					moveHistoryVectorArray.add(moveHistoryVector);
+//					for (MoveLog autoMovedHistory: currentMoveLog.getAutoMoveArray()) {
+//						String autoMovedAttributeName = autoMovedHistory.getName();
+//						Boolean isMethod = leftMethodBoxMap.containsKey(autoMovedAttributeName);
+//						Box autoMovedBox;
+//						Box autoToBox;
+//						if (isMethod) {
+//							autoMovedBox = leftMethodBoxMap.get(autoMovedAttributeName);
+//							autoToBox = rightMethodBoxMap.get(autoMovedAttributeName);
+//						} else {
+//							autoMovedBox = leftPropertyBoxMap.get(autoMovedAttributeName);
+//							autoToBox = rightPropertyBoxMap.get(autoMovedAttributeName);
+//						}
+//						MoveHistoryVector autoMoveHistoryVector = new MoveHistoryVector(
+//								autoMovedBox.getRightConnectionPoints(1).get(0), autoToBox.getLeftConnectionPoints(1).get(0)
+//						);
+//						moveHistoryVectorArray.add(autoMoveHistoryVector);
+//					}
+//				} else {
+//					MethodBox movedBox = rightMethodBoxMap.get(mainMoveAttributeName);
+//					MethodBox toBox = leftMethodBoxMap.get(mainMoveAttributeName);
+//					MoveHistoryVector moveHistoryVector = new MoveHistoryVector(
+//							movedBox.getLeftConnectionPoints(1).get(0), toBox.getRightConnectionPoints(1).get(0)
+//					);
+//					moveHistoryVectorArray.add(moveHistoryVector);
+//					for (MoveLog autoMovedHistory: currentMoveLog.getAutoMoveArray()) {
+//						String autoMovedAttributeName = autoMovedHistory.getName();
+//						Boolean isMethod = rightMethodBoxMap.containsKey(autoMovedAttributeName);
+//						Box autoMovedBox;
+//						Box autoToBox;
+//						if (isMethod) {
+//							autoMovedBox = rightMethodBoxMap.get(autoMovedAttributeName);
+//							autoToBox = leftMethodBoxMap.get(autoMovedAttributeName);
+//						} else {
+//							autoMovedBox = rightPropertyBoxMap.get(autoMovedAttributeName);
+//							autoToBox = leftPropertyBoxMap.get(autoMovedAttributeName);
+//						}
+//						MoveHistoryVector autoMoveHistoryVector = new MoveHistoryVector(
+//								autoMovedBox.getLeftConnectionPoints(1).get(0), autoToBox.getRightConnectionPoints(1).get(0)
+//						);
+//						moveHistoryVectorArray.add(autoMoveHistoryVector);
+//					}
+//				}
+//			}
+//		}
 	}
 
 	public String getLogText() {
@@ -433,7 +492,7 @@ public class Drawer {
 		TextButton.TextButtonStyle textButtonStyle = new TextButton.TextButtonStyle();
 		textButtonStyle.up = skin.newDrawable("white", Color.DARK_GRAY);
 		textButtonStyle.down = skin.newDrawable("white", Color.DARK_GRAY);
-		textButtonStyle.checked = skin.newDrawable("white", Color.BLUE);
+//		textButtonStyle.checked = skin.newDrawable("white", Color.BLUE);
 		textButtonStyle.over = skin.newDrawable("white", Color.LIGHT_GRAY);
 		textButtonStyle.font = skin.getFont("default");
 		textButtonStyle.font.getData().setScale(10.0f);
@@ -444,8 +503,9 @@ public class Drawer {
 		forwardButton.addListener(new ClickListener() {
 			@Override
             public void clicked(InputEvent event, float x, float y) {
-				Log logElement = forward();
-				process(logElement);
+				// Log logElement = forward();
+				// process(logElement);
+				addClass("test");
 				load();
             }
 		});
@@ -499,17 +559,17 @@ public class Drawer {
 				// define srcClass and dstClass
 				Class srcClass;
 				Class dstClass;
-				if (attributeTransferer.leftClassHas(srcName)) {
-					srcClass = attributeTransferer.getLeftClass();
-					dstClass = attributeTransferer.getRightClass();
-				} else {
-					srcClass = attributeTransferer.getRightClass();
-					dstClass = attributeTransferer.getLeftClass();
-				}
+//				if (attributeTransferer.leftClassHas(srcName)) {
+//					srcClass = attributeTransferer.getLeftClass();
+//					dstClass = attributeTransferer.getRightClass();
+//				} else {
+//					srcClass = attributeTransferer.getRightClass();
+//					dstClass = attributeTransferer.getLeftClass();
+//				}
 
 				// move related attributes
-				MoveLog moveLog = DependencyResolver.resolve(srcClass, dstClass, srcName);
-				move(moveLog);
+//				MoveLog moveLog = DependencyResolver.resolve(srcClass, dstClass, srcName);
+//				move(moveLog);
 				load();
 			}
 
@@ -523,41 +583,33 @@ public class Drawer {
 	}
 
 	public void draw(ShapeRenderer shapeRenderer, Batch batch) {
-		for (DependencyVector v: leftInternalDependencyVectorArray) {
-			drawDependencyVector(shapeRenderer, v);
+		for (ClassViewComposer classViewComposer: classViewComposerArray) {
+			for (DependencyVector v: classViewComposer.getInternalDependencyVectorArray()) {
+				drawDependencyVector(shapeRenderer, v);
+			}
+//			for (DependencyVector v: classViewComposer.getExternalDependencyVectorArray()) {
+//				drawDependencyVector(shapeRenderer, v);
+//			}
 		}
-		for (DependencyVector v: rightInternalDependencyVectorArray) {
-			drawDependencyVector(shapeRenderer, v);
-		}
-		for (DependencyVector v: leftExternalDependencyVectorArray) {
-			drawExternalDependencyVector(shapeRenderer, v);
-		}
-		for (DependencyVector v: rightExternalDependencyVectorArray) {
-			drawExternalDependencyVector(shapeRenderer, v);
-		}
-		drawMoveHistorVector(shapeRenderer);
+
+//		drawMoveHistorVector(shapeRenderer);
 
 		// draw name
 		batch.begin();
-		leftClassBox.drawName(batch);
-		rightClassBox.drawName(batch);
-		for (PropertyBox p: leftPropertyBoxMap.values()) {
-			p.drawName(batch);
-		}
-		for (PropertyBox p: rightPropertyBoxMap.values()) {
-			p.drawName(batch);
-		}
-		for (MethodBox m: leftMethodBoxMap.values()) {
-			m.drawName(batch);
-		}
-		for (MethodBox m: rightMethodBoxMap.values()) {
-			m.drawName(batch);
+		for (ClassViewComposer classViewComposer: classViewComposerArray) {
+			classViewComposer.getClassBox().drawName(batch);
+			for (PropertyBox p: classViewComposer.getPropertyBoxMap().values()) {
+				p.drawName(batch);
+			}
+			for (MethodBox m: classViewComposer.getMethodBoxMap().values()) {
+				m.drawName(batch);
+			}
 		}
 		batch.end();
 	}
 
 	private void drawExternalDependencyVector(ShapeRenderer shapeRenderer, DependencyVector dependencyVector) {
-		int lineWidth = 4;
+		int lineWidth = 8;
 		Point startPoint = dependencyVector.getStartPoint();
 		Point endPoint = dependencyVector.getEndPoint();
 
@@ -643,10 +695,10 @@ public class Drawer {
 	}
 
 	private void drawMoveHistorVector(ShapeRenderer shapeRenderer) {
-		int lineWidth = 4;
+		int lineWidth = 16;
 		// draw triangle
-		int height = 24;
-		int width = 9;
+		int height = 48;
+		int width = 18;
 		for (MoveHistoryVector moveHistoryVector: this.moveHistoryVectorArray) {
 			Point startPoint = moveHistoryVector.getStartPoint();
 			Point endPoint = moveHistoryVector.getEndPoint();
@@ -793,65 +845,55 @@ public class Drawer {
 		return dependencyVectorArray;
 	}
 
-	private ArrayList<DependencyVector> createExternalDependencyVectorArray(
-			HashMap<String, PropertyBox> leftPropertyBoxMap,
-			HashMap<String, MethodBox> leftMethodBoxMap,
-			HashMap<String, PropertyBox> rightPropertyBoxMap,
-			HashMap<String, MethodBox> rightMethodBoxMap,
-			ArrayList<ExternalDependency> externalDependencies
-	) {
-		ArrayList<DependencyVector> externalDependencyVector = new ArrayList<DependencyVector>();
-		for (ExternalDependency d: externalDependencies) {
-			Box srcBox;
-			Box dstBox;
-			Point srcPoint;
-			Point dstPoint;
-			String srcName = d.getSrcName();
-			String dstName = d.getDstName();
-
-			if (leftClass.has(srcName)) {
-				if (leftClass.getAttribute(srcName) instanceof Method) {
-					srcBox = leftMethodBoxMap.get(srcName);
-				} else {
-					srcBox = leftPropertyBoxMap.get(srcName);
-				}
-				if (rightClass.getAttribute(dstName) instanceof Method) {
-					dstBox = rightMethodBoxMap.get(dstName);
-				} else {
-					dstBox = rightPropertyBoxMap.get(dstName);
-				}
-				srcPoint = srcBox.getRightConnectionPoints(1).get(0);
-				dstPoint = dstBox.getLeftConnectionPoints(1).get(0);
-			} else {
-				if (rightClass.getAttribute(srcName) instanceof Method) {
-					srcBox = rightMethodBoxMap.get(srcName);
-				} else {
-					srcBox = rightPropertyBoxMap.get(srcName);
-				}
-				if (leftClass.getAttribute(dstName) instanceof Method) {
-					dstBox = leftMethodBoxMap.get(dstName);
-				} else {
-					dstBox = leftPropertyBoxMap.get(dstName);
-				}
-				srcPoint = srcBox.getLeftConnectionPoints(1).get(0);
-				if (dstBox == null) {
-					System.out.println(dstName);
-					System.out.println(srcName);
-				}
-				dstPoint = dstBox.getRightConnectionPoints(1).get(0);
-			}
-			externalDependencyVector.add(new DependencyVector(srcPoint, dstPoint, 0, false));
-		}
-		return externalDependencyVector;
-	}
-
-	private boolean inDefaultClass(Attribute a) {
-		if (leftClass.has(a.getName()) & leftDefaultClass.has(a.getName())) {
-			return true;
-		}
-		if (rightClass.has(a.getName()) & rightDefaultClass.has(a.getName())) {
-			return true;
-		}
-		return false;
-	}
+//	private ArrayList<DependencyVector> createExternalDependencyVectorArray(
+//			HashMap<String, PropertyBox> leftPropertyBoxMap,
+//			HashMap<String, MethodBox> leftMethodBoxMap,
+//			HashMap<String, PropertyBox> rightPropertyBoxMap,
+//			HashMap<String, MethodBox> rightMethodBoxMap,
+//			ArrayList<ExternalDependency> externalDependencies
+//	) {
+//		ArrayList<DependencyVector> externalDependencyVector = new ArrayList<DependencyVector>();
+//		for (ExternalDependency d: externalDependencies) {
+//			Box srcBox;
+//			Box dstBox;
+//			Point srcPoint;
+//			Point dstPoint;
+//			String srcName = d.getSrcName();
+//			String dstName = d.getDstName();
+//
+//			if (leftClass.has(srcName)) {
+//				if (leftClass.getAttribute(srcName) instanceof Method) {
+//					srcBox = leftMethodBoxMap.get(srcName);
+//				} else {
+//					srcBox = leftPropertyBoxMap.get(srcName);
+//				}
+//				if (rightClass.getAttribute(dstName) instanceof Method) {
+//					dstBox = rightMethodBoxMap.get(dstName);
+//				} else {
+//					dstBox = rightPropertyBoxMap.get(dstName);
+//				}
+//				srcPoint = srcBox.getRightConnectionPoints(1).get(0);
+//				dstPoint = dstBox.getLeftConnectionPoints(1).get(0);
+//			} else {
+//				if (rightClass.getAttribute(srcName) instanceof Method) {
+//					srcBox = rightMethodBoxMap.get(srcName);
+//				} else {
+//					srcBox = rightPropertyBoxMap.get(srcName);
+//				}
+//				if (leftClass.getAttribute(dstName) instanceof Method) {
+//					dstBox = leftMethodBoxMap.get(dstName);
+//				} else {
+//					dstBox = leftPropertyBoxMap.get(dstName);
+//				}
+//				srcPoint = srcBox.getLeftConnectionPoints(1).get(0);
+//				if (dstBox == null) {
+//					System.out.println(dstName);
+//					System.out.println(srcName);
+//				}
+//				dstPoint = dstBox.getRightConnectionPoints(1).get(0);
+//			}
+//			externalDependencyVector.add(new DependencyVector(srcPoint, dstPoint, 0, false));
+//		}
+//		return externalDependencyVector;
+//	}
 }
