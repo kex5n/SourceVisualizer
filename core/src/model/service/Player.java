@@ -8,6 +8,7 @@ import model.domain.Class;
 import model.domain.ExternalDependency;
 import model.service.log.LogManager;
 import model.service.log.MoveLog;
+import model.service.log.AddLog;
 import model.service.log.Log;
 import model.service.log.AltLog;
 
@@ -22,6 +23,10 @@ public class Player {
 	public void recordMoveLog(MoveLog moveLog) {
 		logManager.recordMoveLog(moveLog);
 	}
+	public void recordAddLog(AddLog addLog) {
+		logManager.recordAddLog(addLog);
+	}
+
 	public String getLogText() {
 		return logManager.getLogText();
 	}

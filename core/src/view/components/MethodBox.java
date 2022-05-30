@@ -1,24 +1,31 @@
 package view.components;
 
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType;
+import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 
 public class MethodBox extends Box{
 	private boolean isRemoved;
 	private ShapeRenderer shapeRenderer = new ShapeRenderer();
 	public static final int METHOD_BOX_WIDTH = 400;
 	public static final int METHOD_BOX_HEIGHT = 100;
-	public static final BitmapFont font = new BitmapFont();
+	public BitmapFont font;
+	private FreeTypeFontGenerator fontGenerator;
 
 	public MethodBox(Point startPoint, String name, boolean isRemoved) {
 		super(startPoint, METHOD_BOX_WIDTH, METHOD_BOX_HEIGHT, name);
 		this.isRemoved = isRemoved;
-		font.setColor(Color.BLACK);
-		font.getData().setScale(2.0f);
+		FileHandle file = Gdx.files.local("/home/kentaroishii/eclipse-workspace/sample/core/data/NuNimonade-M2.otf");
+       fontGenerator = new FreeTypeFontGenerator(file);
+       FreeTypeFontGenerator.FreeTypeFontParameter param = new FreeTypeFontGenerator.FreeTypeFontParameter();
+       param.size = 40;
+       param.color = Color.BLACK;
+       this.font = fontGenerator.generateFont(param);
 	}
 
 	public boolean getIsRemoved() {
@@ -39,9 +46,9 @@ public class MethodBox extends Box{
 	public void draw(Batch batch, float alpha) {
 		shapeRenderer.begin(ShapeType.Filled);
 		if (isRemoved) {
-			shapeRenderer.setColor(Color.DARK_GRAY);
+			shapeRenderer.setColor(1.0f, 20/255f, 147/255f, 0.3f);
 		} else {
-			shapeRenderer.setColor(Color.YELLOW);
+			shapeRenderer.setColor(1.0f, 20/255f, 147/255f, 1.0f);
 		}
 		shapeRenderer.rect(
 				getX(),

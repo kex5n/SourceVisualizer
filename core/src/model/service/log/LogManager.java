@@ -50,6 +50,10 @@ public class LogManager {
 		}
 	}
 
+	public void recordAddLog(AddLog addLog) {
+		currentUseLogArray.push(addLog);
+	}
+
 	public void recordAltLog(AltLog altLog) {
 		currentUseLogArray.push(altLog);
 	}
@@ -108,81 +112,73 @@ public class LogManager {
 		return returnArray;
 	}
 
+	public String generateMoveLogText(MoveLog moveLog) {
+		String logText = "";
+		logText += (
+				"move: "
+				+ moveLog.getName()
+				+ ":"
+				+ moveLog.getSrcClassName()
+				+ " -> "
+				+ moveLog.getDstClassName()
+				+ "\n"
+			);
+			logText += "  automoved:\n";
+			for (MoveLog autoMoveLog: moveLog.getAutoMoveArray()) {
+				if (!autoMoveLog.getName().equals(moveLog.getName())) {
+					logText += (
+						"    "
+						+ moveLog.getSrcClassName()
+						+ "."
+						+ moveLog.getName()
+						+ "\n"
+					);
+				}
+			}
+			logText += "  generated:\n";
+			for (GeneratedLog generatedLog: moveLog.getGeneratedLogArray()) {
+				logText += "    ";
+				logText += generatedLog.getSrcClassName() + "." + generatedLog.getSrcAttributeName();
+				logText += " -> ";
+				logText += generatedLog.getDstClassName() + "." + generatedLog.getDstAttributeName();
+				logText += "\n";
+			}
+			return logText;
+	}
+
+	public String generateAddLogText(AddLog addLog) {
+		if (addLog.getElementType().equals("class")) {
+			return "addC: " + addLog.getName() + "\n";
+		} else {
+			AddMethodLog addMethodLog = (AddMethodLog) addLog;
+			return "addM: " + addLog.getElementType() + " to " + addMethodLog.getDstClassName() + "\n";
+		}
+	}
+	
 	public String getLogText() {
-		//System.out.println("getLogText called!");
 		String logText = "";
 		for (Log logElement: getCurrentUseLogArray()) {
 			if (logElement.getType().equals("normal")) {
 				NormalLog normalLogElement = (NormalLog) logElement;
 				if (normalLogElement.getActionType().equals("move")) {
 					MoveLog moveLogElement = (MoveLog) normalLogElement;
-					logText += (
-						"move: "
-						+ moveLogElement.getName()
-						+ ":"
-						+ moveLogElement.getSrcClassName()
-						+ " -> "
-						+ moveLogElement.getDstClassName()
-						+ "\n"
-					);
-					logText += "  automoved:\n";
-					for (MoveLog autoMoveLog: moveLogElement.getAutoMoveArray()) {
-						if (!autoMoveLog.getName().equals(moveLogElement.getName())) {
-							logText += (
-								"    "
-								+ moveLogElement.getSrcClassName()
-								+ "."
-								+ moveLogElement.getName()
-								+ "\n"
-							);
-						}
-					}
-					logText += "  generated:\n";
-					for (GeneratedLog generatedLog: moveLogElement.getGeneratedLogArray()) {
-						logText += "    ";
-						logText += generatedLog.getSrcClassName() + "." + generatedLog.getSrcAttributeName();
-						logText += " -> ";
-						logText += generatedLog.getDstClassName() + "." + generatedLog.getDstAttributeName();
-						logText += "\n";
-					}
+					logText += generateMoveLogText(moveLogElement);
+				} else {
+					AddLog addLogElement = (AddLog) normalLogElement;
+					logText += generateAddLogText(addLogElement);
 				}
 			}
 		}
 		for (Log logElement: getSubLogArray()) {
-			logText += "subArray\n";
+			// logText += "subArray\n";
 			if (logElement.getType().equals("normal")) {
 				NormalLog normalLogElement = (NormalLog) logElement;
 				if (normalLogElement.getActionType().equals("move")) {
 					MoveLog moveLogElement = (MoveLog) normalLogElement;
-					logText += (
-						"move: "
-						+ moveLogElement.getName()
-						+ ":"
-						+ moveLogElement.getSrcClassName()
-						+ " -> "
-						+ moveLogElement.getDstClassName()
-						+ "\n"
-					);
-					logText += "  automoved:\n";
-					for (MoveLog autoMoveLog: moveLogElement.getAutoMoveArray()) {
-						if (!autoMoveLog.getName().equals(moveLogElement.getName())) {
-							logText += (
-								"    "
-								+ moveLogElement.getSrcClassName()
-								+ "."
-								+ moveLogElement.getName()
-								+ "\n"
-							);
-						}
-					}
-					logText += "  generated:\n";
-					for (GeneratedLog generatedLog: moveLogElement.getGeneratedLogArray()) {
-						logText += "    ";
-						logText += generatedLog.getSrcClassName() + "." + generatedLog.getSrcAttributeName();
-						logText += " -> ";
-						logText += generatedLog.getDstClassName() + "." + generatedLog.getDstAttributeName();
-						logText += "\n";
-					}
+					logText += generateMoveLogText(moveLogElement);
+				} else {
+					AddLog addLogElement = (AddLog) normalLogElement;
+					logText += generateAddLogText(addLogElement);
 				}
 			}
 		}
