@@ -81,16 +81,11 @@ public class MyGdxGame extends ApplicationAdapter {
 		String logText = drawer.getLogText();
 		LogWindow tempLogWindow = (LogWindow) logWindow.getListener();
 		tempLogWindow.setLogText(logText);
-
-//		ConfigWindow tempConfigWindow = (ConfigWindow) configWindow.getListener();
-//		if (tempConfigWindow.isClicked) {
-//			System.out.println("clicked!");
-//		}
-
-//		tempConfigWindow.stage.act(Gdx.graphics.getDeltaTime());
-//		tempConfigWindow.stage.draw();
 		stage.act(Gdx.graphics.getDeltaTime());
-		stage.draw();
+		
+		sharedSpriteBatch.begin();
+		//stage.draw();
+		sharedSpriteBatch.end();
 		drawer.draw(shapeRenderer, sharedSpriteBatch);
 	}
 	

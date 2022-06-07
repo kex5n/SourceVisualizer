@@ -87,14 +87,16 @@ public class DependencyResolver {
 		// 4. 移ったAttributeのうち、元のクラスに残ったAttributeに依存されている場合、外部依存関係とする。
 		HashSet<ExternalDependency> externalDependencies = new HashSet<ExternalDependency>();
 		ArrayList<InternalDependency> srcCurrentInternalDependencies = (ArrayList<InternalDependency>) srcClass.getInternalDependencies().clone();
-		for (InternalDependency internalDependency: srcCurrentInternalDependencies) {
-			if (internalDependency.getDstName().equals(a.getName())) {
-				srcClass.removeInternalDependency(internalDependency);
-				try {
-					srcClass.setExternalDependencies(internalDependency.getSrcName(), dstClass, internalDependency.getDstName());
-					externalDependencies.add(new ExternalDependency(internalDependency.getSrcName(), dstClass.getName(), internalDependency.getDstName()));
-				} catch(Exception e) {
-					System.exit(1);
+		for (Attribute moveA: moveAttribute) {
+			for (InternalDependency internalDependency: srcCurrentInternalDependencies) {
+				if (internalDependency.getDstName().equals(moveA.getName())) {
+					srcClass.removeInternalDependency(internalDependency);
+					try {
+						srcClass.setExternalDependencies(internalDependency.getSrcName(), dstClass, internalDependency.getDstName());
+						externalDependencies.add(new ExternalDependency(internalDependency.getSrcName(), dstClass.getName(), internalDependency.getDstName()));
+					} catch(Exception e) {
+						System.exit(1);
+					}
 				}
 			}
 		}

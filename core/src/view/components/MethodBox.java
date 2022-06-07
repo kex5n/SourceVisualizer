@@ -32,21 +32,11 @@ public class MethodBox extends Box{
 		return isRemoved;
 	}
 
-	public void drawName(Batch batch) {
-		Point centerPoint = getCenterPoint();
-       font.draw(
-    		   batch,
-    		   getName(),
-    		   centerPoint.x - 20,
-    		   centerPoint.y + 10
-    	);
-	}
-
 	@Override
 	public void draw(Batch batch, float alpha) {
 		shapeRenderer.begin(ShapeType.Filled);
 		if (isRemoved) {
-			shapeRenderer.setColor(1.0f, 20/255f, 147/255f, 0.3f);
+			shapeRenderer.setColor(128/255f, 10/255f, 74/255f, 1.0f);
 		} else {
 			shapeRenderer.setColor(1.0f, 20/255f, 147/255f, 1.0f);
 		}
@@ -57,5 +47,14 @@ public class MethodBox extends Box{
 				getHeight()
 		);
 		shapeRenderer.end();
+		batch.begin();
+		Point centerPoint = getCenterPoint();
+       font.draw(
+    		   batch,
+    		   getName(),
+    		   centerPoint.x - 20,
+    		   centerPoint.y + 10
+    	);
+       batch.end();
 	}
 }

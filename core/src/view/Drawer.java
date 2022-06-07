@@ -24,6 +24,7 @@ import model.service.log.Log;
 import model.service.log.NormalLog;
 import model.service.log.AddLog;
 import model.service.log.AddClassLog;
+import model.service.log.AddDependencyLog;
 import model.service.log.AddMethodLog;
 import model.service.log.MoveLog;
 
@@ -55,6 +56,7 @@ import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.TextField;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.utils.DragListener;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
@@ -92,9 +94,32 @@ public class Drawer {
 	private ArrayList<ClassViewComposer> classViewComposerArray;
 	private ArrayList<MoveHistoryVector> moveHistoryVectorArray;
 
+	// add class
+	private String addClassText;
+	private TextField addClassTextField;
+	private TextButton addClassButton;
+
+	// add method
+	private String addMethodTargetClassText;
+	private String addMethodText;
+	private TextField addMethodTargetClassTextField;
+	private TextField addMethodTextField;
+	private TextButton addMethodButton;
+
+	// add dependency
+	private String addDependencySrcClassText;
+	private String addDependencySrcMethodText;
+	private String addDependencyDstClassText;
+	private String addDependencyDstAttributeText;
+	private TextField addDependencySrcClassTextField;
+	private TextField addDependencySrcMethodTextField;
+	private TextField addDependencyDstClassTextField;
+	private TextField addDependencyDstAttributeTextField;
+	private TextButton addDependencyButton;
+	
+	// add forward and rollback button
 	private TextButton forwardButton;
 	private TextButton rollbackButton;
-	private TextButton addClassButton;
 
 	private Stage stage;
 	private DragAndDrop dragAndDrop;
@@ -110,6 +135,7 @@ public class Drawer {
 		this.player = new Player();
 		this.moveHistoryVectorArray = new ArrayList<MoveHistoryVector>();
 		initButton();
+		this.addClassText = "";
 		load();
 	}
 
@@ -214,14 +240,16 @@ public class Drawer {
 		// 4. 移ったAttributeのうち、元のクラスに残ったAttributeに依存されている場合、外部依存関係とする。
 		HashSet<ExternalDependency> externalDependencies = new HashSet<ExternalDependency>();
 		ArrayList<InternalDependency> srcCurrentInternalDependencies = (ArrayList<InternalDependency>) srcClass.getInternalDependencies().clone();
-		for (InternalDependency internalDependency: srcCurrentInternalDependencies) {
-			if (internalDependency.getDstName().equals(a.getName())) {
-				srcClass.removeInternalDependency(internalDependency);
-				try {
-					srcClass.setExternalDependencies(internalDependency.getSrcName(), dstClass, internalDependency.getDstName());
-					externalDependencies.add(new ExternalDependency(internalDependency.getSrcName(), dstClass.getName(), internalDependency.getDstName()));
-				} catch(Exception e) {
-					System.exit(1);
+		for (Attribute moveA: moveAttribute) {
+			for (InternalDependency internalDependency: srcCurrentInternalDependencies) {
+				if (internalDependency.getDstName().equals(moveA.getName())) {
+					srcClass.removeInternalDependency(internalDependency);
+					try {
+						srcClass.setExternalDependencies(internalDependency.getSrcName(), dstClass, internalDependency.getDstName());
+						externalDependencies.add(new ExternalDependency(internalDependency.getSrcName(), dstClass.getName(), internalDependency.getDstName()));
+					} catch(Exception e) {
+						System.exit(1);
+					}
 				}
 			}
 		}
@@ -236,8 +264,17 @@ public class Drawer {
 	public void processAdd(AddLog addLog) {
 		if (addLog.getElementType().equals("class")) {
 			addClass(addLog.getName());
+		} else if (addLog.getElementType().equals("method")) {
+			AddMethodLog addMethodLog = (AddMethodLog) addLog;
+			addMethods(addMethodLog.getDstClassName(), addMethodLog.getName());
 		} else {
-			addMethods(addLog.getName());
+			AddDependencyLog addDependencyLog = (AddDependencyLog) addLog;
+			addDependencies(
+				addDependencyLog.getSrcClassName(),
+				addDependencyLog.getName(),
+				addDependencyLog.getDstClassName(),
+				addDependencyLog.getDstAttributeName()
+			);
 		}
 	}
 
@@ -247,11 +284,30 @@ public class Drawer {
 		this.pDefault.setClass(c);
 	}
 
-	public void addMethods(String name) {
-		Method m = new Method(name);
-		this.aloneMethods.put(name, m);
+	public void addMethods(String targetClassName, String methodName) {
+		Method m = new Method(methodName);
+		Class c = p.getClass(targetClassName);
+		c.setAttribute(m);
+		Class cDefault = pDefault.getClass(targetClassName);
+		cDefault.setAttribute(m);
 	}
-	
+
+	public void addDependencies(
+		String srcClassName,
+		String srcMethodName,
+		String dstClassName,
+		String dstAttributeName
+	) {
+		if (srcClassName.equals(dstClassName)) {
+			Class srcClass = p.getClass(srcClassName);
+			try {
+				srcClass.setInternalDependencies(srcMethodName, dstAttributeName);
+			} catch (Exception e) {
+				System.exit(1);;
+			}
+		}
+	}
+
 	public void process(Log logElement) {
 		if (logElement.getType().equals("normal")) {
 			NormalLog normalLogElement = (NormalLog) logElement;
@@ -305,7 +361,23 @@ public class Drawer {
 		classViewComposerArray.clear();
 		stage.addActor(forwardButton);
 		stage.addActor(rollbackButton);
+
+		// add class
 		stage.addActor(addClassButton);
+		stage.addActor(addClassTextField);
+
+		// add method
+		stage.addActor(addMethodButton);
+		stage.addActor(addMethodTargetClassTextField);
+		stage.addActor(addMethodTextField);
+	
+		// add dependency
+		stage.addActor(addDependencySrcClassTextField);
+		stage.addActor(addDependencySrcMethodTextField);
+		stage.addActor(addDependencyDstClassTextField);
+		stage.addActor(addDependencyDstAttributeTextField);
+		stage.addActor(addDependencyButton);
+
 		dragAndDrop = new DragAndDrop();
 		ArrayList<Class> classArray = p.getClasses();
 		ArrayList<Class> defaultClassArray = pDefault.getClasses();
@@ -396,13 +468,13 @@ public class Drawer {
 		FileHandle file = Gdx.files.local("/home/kentaroishii/eclipse-workspace/sample/core/data/NuNimonade-M2.otf");
 		FreeTypeFontGenerator fontGenerator = new FreeTypeFontGenerator(file);
        FreeTypeFontGenerator.FreeTypeFontParameter param = new FreeTypeFontGenerator.FreeTypeFontParameter();
-       param.size = 40;
+       param.size = 35;
        param.color = Color.WHITE;
 		textButtonStyle.font = fontGenerator.generateFont(param);
 		skin.add("default", textButtonStyle);
 		forwardButton = new TextButton("forward", skin);
-		forwardButton.setSize(400, 100);
-		forwardButton.setPosition(10, 10);
+		forwardButton.setSize(400, 75);
+		forwardButton.setPosition(1500, 260);
 		forwardButton.addListener(new ClickListener() {
 			@Override
             public void clicked(InputEvent event, float x, float y) {
@@ -413,8 +485,8 @@ public class Drawer {
 		});
 
 		rollbackButton = new TextButton("rollback", skin);
-		rollbackButton.setSize(400, 100);
-		rollbackButton.setPosition(450, 10);
+		rollbackButton.setSize(400, 75);
+		rollbackButton.setPosition(1500, 160);
 		rollbackButton.addListener(new ClickListener() {
 			@Override
             public void clicked(InputEvent event, float x, float y) {
@@ -428,16 +500,145 @@ public class Drawer {
             }
 		});
 
-		addClassButton = new TextButton("add Class", skin);
-		addClassButton.setSize(400, 100);
-		addClassButton.setPosition(900, 10);
+		TextField.TextFieldStyle textFieldStyle = new TextField.TextFieldStyle();
+		textFieldStyle.font = fontGenerator.generateFont(param);
+		textFieldStyle.fontColor = Color.BLACK;
+		skin.add("default", textFieldStyle);
+
+		// add class
+		addClassButton = new TextButton("add", skin);
+		addClassButton.setSize(80, 50);
+		addClassButton.setPosition(1820, 1000);
 		addClassButton.addListener(new ClickListener() {
 			@Override
             public void clicked(InputEvent event, float x, float y) {
-				AddClassLog addLog = new AddClassLog("test");
+				AddClassLog addLog = new AddClassLog(addClassText);
 				add(addLog);
+				addClassText = "class name";
+				addClassTextField.setText(addClassText);
             }
 		});
+		addClassTextField = new TextField("class name", skin);
+		addClassTextField.setSize(300, 50);
+		addClassTextField.setPosition(1500, 1000);
+		addClassTextField.setColor(Color.BLACK);
+		addClassTextField.setDebug(true);
+		addClassTextField.setTextFieldListener(new TextField.TextFieldListener() {
+	        @Override
+	        public void keyTyped(TextField textField, char key) {
+	            addClassText = textField.getText();
+	         }
+	       }
+		);
+
+		// add method
+		addMethodButton = new TextButton("add", skin);
+		addMethodButton.setSize(80, 50);
+		addMethodButton.setPosition(1820, 800);
+		addMethodButton.addListener(new ClickListener() {
+			@Override
+            public void clicked(InputEvent event, float x, float y) {
+				AddMethodLog addLog = new AddMethodLog(addMethodText, addMethodTargetClassText);
+				add(addLog);
+				addMethodText = "method name";
+				addMethodTextField.setText(addMethodText);
+				addMethodTargetClassText = "class to add";
+				addMethodTargetClassTextField.setText(addMethodTargetClassText);
+            }
+		});
+		addMethodTextField = new TextField("method name", skin);
+		addMethodTextField.setSize(300, 50);
+		addMethodTextField.setPosition(1500, 800);
+		addMethodTextField.setColor(Color.BLACK);
+		addMethodTextField.setDebug(true);
+		addMethodTextField.setTextFieldListener(new TextField.TextFieldListener() {
+	        @Override
+	        public void keyTyped(TextField textField, char key) {
+	            addMethodText = textField.getText();
+	         }
+	       }
+		);
+		addMethodTargetClassTextField = new TextField("class to add", skin);
+		addMethodTargetClassTextField.setSize(300, 50);
+		addMethodTargetClassTextField.setPosition(1500, 870);
+		addMethodTargetClassTextField.setColor(Color.BLACK);
+		addMethodTargetClassTextField.setDebug(true);
+		addMethodTargetClassTextField.setTextFieldListener(new TextField.TextFieldListener() {
+	        @Override
+	        public void keyTyped(TextField textField, char key) {
+	            addMethodTargetClassText = textField.getText();
+	         }
+	       }
+		);
+
+		// add dependency
+		addDependencyButton = new TextButton("add", skin);
+		addDependencyButton.setSize(80, 50);
+		addDependencyButton.setPosition(1820, 460);
+		addDependencyButton.addListener(new ClickListener() {
+			@Override
+            public void clicked(InputEvent event, float x, float y) {
+				AddDependencyLog addLog = new AddDependencyLog(
+					addDependencySrcClassText,
+					addDependencySrcMethodText,
+					addDependencyDstClassText,
+					addDependencyDstAttributeText
+				);
+				add(addLog);
+				addDependencySrcClassText = "source class";
+				addDependencySrcClassTextField.setText(addDependencySrcClassText);
+				addDependencySrcMethodText = "source method";
+				addDependencySrcMethodTextField.setText(addDependencySrcMethodText);
+				addDependencyDstClassText = "dst class";
+				addDependencyDstClassTextField.setText(addDependencyDstClassText);
+				addDependencyDstAttributeText = "dst attribute";
+				addDependencyDstAttributeTextField.setText(addDependencyDstAttributeText);
+            }
+		});
+		addDependencySrcClassTextField = new TextField("source class", skin);
+		addDependencySrcClassTextField.setSize(300, 50);
+		addDependencySrcClassTextField.setPosition(1500, 670);
+		addDependencySrcClassTextField.setColor(Color.BLACK);
+		addDependencySrcClassTextField.setTextFieldListener(new TextField.TextFieldListener() {
+	        @Override
+	        public void keyTyped(TextField textField, char key) {
+	        	addDependencySrcClassText = textField.getText();
+	         }
+	       }
+		);
+		addDependencySrcMethodTextField = new TextField("source method", skin);
+		addDependencySrcMethodTextField.setSize(300, 50);
+		addDependencySrcMethodTextField.setPosition(1500, 600);
+		addDependencySrcMethodTextField.setColor(Color.BLACK);
+		addDependencySrcMethodTextField.setTextFieldListener(new TextField.TextFieldListener() {
+	        @Override
+	        public void keyTyped(TextField textField, char key) {
+	        	addDependencySrcMethodText = textField.getText();
+	         }
+	       }
+		);
+		addDependencyDstClassTextField = new TextField("dst class", skin);
+		addDependencyDstClassTextField.setSize(300, 50);
+		addDependencyDstClassTextField.setPosition(1500, 530);
+		addDependencyDstClassTextField.setColor(Color.BLACK);
+		addDependencyDstClassTextField.setTextFieldListener(new TextField.TextFieldListener() {
+	        @Override
+	        public void keyTyped(TextField textField, char key) {
+	        	addDependencyDstClassText = textField.getText();
+	         }
+	       }
+		);
+		addDependencyDstAttributeTextField = new TextField("dst attribute", skin);
+		addDependencyDstAttributeTextField.setSize(300, 50);
+		addDependencyDstAttributeTextField.setPosition(1500, 460);
+		addDependencyDstAttributeTextField.setColor(Color.BLACK);
+		addDependencyDstAttributeTextField.setTextFieldListener(new TextField.TextFieldListener() {
+	        @Override
+	        public void keyTyped(TextField textField, char key) {
+	        	addDependencyDstAttributeText = textField.getText();
+	         }
+	       }
+		);
 	}
 
 	private void setDragAndDropFunction(Box b, final ClassBox targetClassBox) {
@@ -496,6 +697,97 @@ public class Drawer {
 	}
 
 	public void draw(ShapeRenderer shapeRenderer, Batch batch) {
+		// draw base element
+		batch.begin();
+		forwardButton.draw(batch, 1.0f);
+		rollbackButton.draw(batch, 1.0f);
+		addClassButton.draw(batch, 1.0f);
+		addClassTextField.draw(batch, 1.0f);
+		addClassTextField.getStyle().font.draw(
+		   batch,
+		   "- add Class",
+		   1500f,
+		   1100f
+	    );
+		addMethodButton.draw(batch, 1.0f);
+		addMethodTextField.draw(batch, 1.0f);
+		addMethodTargetClassTextField.draw(batch, 1.0f);
+		addMethodTextField.getStyle().font.draw(
+		   batch,
+		   "- add Method",
+		   1500f,
+		   970f
+	    );
+		addDependencyButton.draw(batch, 1.0f);
+		addDependencySrcClassTextField.draw(batch, 1.0f);
+		addDependencySrcMethodTextField.draw(batch, 1.0f);
+		addDependencyDstClassTextField.draw(batch, 1.0f);
+		addDependencyDstAttributeTextField.draw(batch, 1.0f);
+		addDependencySrcClassTextField.getStyle().font.draw(
+		   batch,
+		   "- add Dependency",
+		   1500f,
+		   770f
+	    );
+		batch.end();
+		shapeRenderer.begin(ShapeType.Line);
+		shapeRenderer.setColor(Color.BLACK);
+		shapeRenderer.rect(
+			addClassTextField.getX(),
+			addClassTextField.getY(),
+			addClassTextField.getWidth(),
+			addClassTextField.getHeight()
+		);
+		shapeRenderer.rect(
+			addMethodTargetClassTextField.getX(),
+			addMethodTargetClassTextField.getY(),
+			addMethodTargetClassTextField.getWidth(),
+			addMethodTargetClassTextField.getHeight()
+		);
+		shapeRenderer.rect(
+			addMethodTextField.getX(),
+			addMethodTextField.getY(),
+			addMethodTextField.getWidth(),
+			addMethodTextField.getHeight()
+		);
+		shapeRenderer.rect(
+			addDependencySrcClassTextField.getX(),
+			addDependencySrcClassTextField.getY(),
+			addDependencySrcClassTextField.getWidth(),
+			addDependencySrcClassTextField.getHeight()
+		);
+		shapeRenderer.rect(
+			addDependencySrcMethodTextField.getX(),
+			addDependencySrcMethodTextField.getY(),
+			addDependencySrcMethodTextField.getWidth(),
+			addDependencySrcMethodTextField.getHeight()
+		);
+		shapeRenderer.rect(
+			addDependencyDstClassTextField.getX(),
+			addDependencyDstClassTextField.getY(),
+			addDependencyDstClassTextField.getWidth(),
+			addDependencyDstClassTextField.getHeight()
+		);
+		shapeRenderer.rect(
+			addDependencyDstAttributeTextField.getX(),
+			addDependencyDstAttributeTextField.getY(),
+			addDependencyDstAttributeTextField.getWidth(),
+			addDependencyDstAttributeTextField.getHeight()
+		);
+		shapeRenderer.end();
+		for (ClassViewComposer classViewComposer: classViewComposerArray) {
+			classViewComposer.getClassBox().draw(batch, 1.0f);
+		}
+		for (ClassViewComposer classViewComposer: classViewComposerArray) {
+			for (PropertyBox p: classViewComposer.getPropertyBoxMap().values()) {
+				p.draw(batch, 1.0f);
+			}
+			for (MethodBox m: classViewComposer.getMethodBoxMap().values()) {
+				m.draw(batch, 1.0f);
+			}
+		}
+
+		// draw vector
 		for (ClassViewComposer classViewComposer: classViewComposerArray) {
 			for (DependencyVector v: classViewComposer.getInternalDependencyVectorArray()) {
 				drawDependencyVector(shapeRenderer, v);
@@ -506,19 +798,6 @@ public class Drawer {
 		}
 
 		drawMoveHistorVector(shapeRenderer);
-
-		// draw name
-		batch.begin();
-		for (ClassViewComposer classViewComposer: classViewComposerArray) {
-			classViewComposer.getClassBox().drawName(batch);
-			for (PropertyBox p: classViewComposer.getPropertyBoxMap().values()) {
-				p.drawName(batch);
-			}
-			for (MethodBox m: classViewComposer.getMethodBoxMap().values()) {
-				m.drawName(batch);
-			}
-		}
-		batch.end();
 	}
 
 	private void drawExternalDependencyVector(ShapeRenderer shapeRenderer, DependencyVector dependencyVector) {
@@ -527,7 +806,7 @@ public class Drawer {
 		Point endPoint = dependencyVector.getEndPoint();
 
 		shapeRenderer.begin(ShapeType.Filled);
-		shapeRenderer.setColor(Color.BLUE);
+		shapeRenderer.setColor(30/255f, 144/255f, 255/255f, 1.0f);
 		
 		// draw triangle
 		int height = 36;
@@ -567,9 +846,9 @@ public class Drawer {
 
 		shapeRenderer.begin(ShapeType.Filled);
 		if (dependencyVector.getIsMethodDst()) {
-			shapeRenderer.setColor(Color.BLUE);
+			shapeRenderer.setColor(30/255f, 144/255f, 255/255f, 1.0f);
 		} else {
-			shapeRenderer.setColor(Color.FOREST);
+			shapeRenderer.setColor(50/255f, 205/255f, 50/255f, 1.0f);
 		}
 
 		// draw main line
@@ -636,13 +915,27 @@ public class Drawer {
 			);
 	
 			// draw main line
-			shapeRenderer.rectLine(
-					startPoint.x,
-					startPoint.y,
-					endPoint.x + (p1X + p2X) / 2,
-					endPoint.y + (p1Y + p2Y) / 2,
-					lineWidth
-			);
+			int spanX = 25;
+			int num = (int) Math.abs(endPoint.x - startPoint.x) / spanX;
+			float spanY = Math.abs(endPoint.y - startPoint.y) / num;
+			for (int i=0; i<num-1; i++) {
+				if (i % 2 == 0) {
+					shapeRenderer.rectLine(
+						startPoint.x + i*spanX,
+						startPoint.y + i*spanY,
+						startPoint.x + (i+1)*spanX,
+						startPoint.y + (i+1)*spanY,
+						lineWidth
+					);
+				}
+			}
+//			shapeRenderer.rectLine(
+//					startPoint.x,
+//					startPoint.y,
+//					endPoint.x + (p1X + p2X) / 2,
+//					endPoint.y + (p1Y + p2Y) / 2,
+//					lineWidth
+//			);
 			shapeRenderer.end();
 		}
 	}
@@ -674,7 +967,8 @@ public class Drawer {
 			String name = m.getName();
 			Point startPoint = new Point(
 					methodBoxXValue,
-					methodRegion.getLeftBottomPoint().y + methodRegion.getHeight() - interval * (count + 1) - MethodBox.METHOD_BOX_HEIGHT / 2);
+					methodRegion.getLeftBottomPoint().y + methodRegion.getHeight() - interval * (count + 1) - MethodBox.METHOD_BOX_HEIGHT / 2
+			);
 			MethodBox methodBox = new MethodBox(startPoint, m.getName(), !c.has(m.getName()));
 			methodBoxMap.put(name, methodBox);
 			count++;
@@ -764,6 +1058,12 @@ public class Drawer {
 	) {
 		ArrayList<DependencyVector> externalDependencyVector = new ArrayList<DependencyVector>();
 		for (ExternalDependency d: externalDependencies) {
+			if (
+				!(dstClassViewComposer.getMethodBoxMap().containsKey(d.getDstName()))
+				& !(dstClassViewComposer.getPropertyBoxMap().containsKey(d.getDstName()))
+			) {
+				continue;
+			}
 			Box srcBox;
 			Box dstBox;
 			Point srcPoint;
@@ -817,6 +1117,9 @@ public class Drawer {
 				}
 				MoveHistoryVector moveHistoryVector;
 				if (srcClassViewComposer.getId() < dstClassViewComposer.getId()) {
+					System.out.println(mainMoveSrcClassName);
+					System.out.println(mainMoveDstClassName);
+					System.out.println(mainMoveAttributeName);
 					moveHistoryVector = new MoveHistoryVector(
 						movedBox.getRightConnectionPoints(1).get(0), toBox.getLeftConnectionPoints(1).get(0)
 					);

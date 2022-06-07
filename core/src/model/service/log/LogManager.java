@@ -130,7 +130,7 @@ public class LogManager {
 						"    "
 						+ moveLog.getSrcClassName()
 						+ "."
-						+ moveLog.getName()
+						+ autoMoveLog.getName()
 						+ "\n"
 					);
 				}
@@ -149,9 +149,18 @@ public class LogManager {
 	public String generateAddLogText(AddLog addLog) {
 		if (addLog.getElementType().equals("class")) {
 			return "addC: " + addLog.getName() + "\n";
-		} else {
+		} else if (addLog.getElementType().equals("method")) {
 			AddMethodLog addMethodLog = (AddMethodLog) addLog;
-			return "addM: " + addLog.getElementType() + " to " + addMethodLog.getDstClassName() + "\n";
+			return "addM: " + addMethodLog.getElementType() + " to " + addMethodLog.getDstClassName() + "\n";
+		} else {
+			AddDependencyLog addDependencyLog = (AddDependencyLog) addLog;
+			return (
+				"addD: "
+				+ addDependencyLog.getSrcClassName() + "." + addDependencyLog.getName()
+				+ " to "
+				+ addDependencyLog.getDstClassName() + "." + addDependencyLog.getDstAttributeName()
+				+ "\n"
+			);
 		}
 	}
 	

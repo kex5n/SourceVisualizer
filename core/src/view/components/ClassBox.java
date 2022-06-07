@@ -28,22 +28,11 @@ public class ClassBox extends Box {
        param.color = Color.BLACK;
        this.font = fontGenerator.generateFont(param);
 	}
-
-	public void drawName(Batch batch) {
-		Point centerPoint = getCenterPoint();
-		font.draw(
-    		   batch,
-    		   "p1." + getName(),
-    		   centerPoint.x - 30,
-    		   centerPoint.y + getHeight() / 2 - 25
-    	);
-	}
 	
 	@Override
 	public void draw(Batch batch, float alpha) {
 		shapeRenderer.begin(ShapeType.Filled);
-		shapeRenderer.setColor(240/255f, 240/255f, 240/255f, 0.5f);
-		Point startPoint = getLeftBottomPoint();
+		shapeRenderer.setColor(240/255f, 240/255f, 240/255f, 1.0f);
 		shapeRenderer.rect(
 				getX(),
 				getY(),
@@ -60,6 +49,15 @@ public class ClassBox extends Box {
 				getWidth(),
 				getHeight()
 		);
+		Point centerPoint = getCenterPoint();
 		shapeRenderer.end();
+		batch.begin();
+		font.draw(
+    		   batch,
+    		   "p1." + getName(),
+    		   centerPoint.x - 30,
+    		   centerPoint.y + getHeight() / 2 - 25
+    	);
+		batch.end();
 	}
 }

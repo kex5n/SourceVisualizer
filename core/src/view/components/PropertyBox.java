@@ -33,21 +33,11 @@ public class PropertyBox extends Box {
 		return isRemoved;
 	}
 
-	public void drawName(Batch batch) {
-		Point centerPoint = getCenterPoint();
-		font.draw(
-    		   batch,
-    		   getName(),
-    		   centerPoint.x - 20,
-    		   centerPoint.y + 10
-    	);
-	}
-
 	@Override
 	public void draw(Batch batch, float alpha) {
 		shapeRenderer.begin(ShapeType.Filled);
 		if (isRemoved) {
-			shapeRenderer.setColor(1.0f, 160/255f,  122/255f, 0.3f);
+			shapeRenderer.setColor(128/255f, 80/255f,  61/255f, 0.3f);
 		} else {
 			shapeRenderer.setColor(1.0f, 160/255f,  122/255f, 1.0f);
 		}
@@ -58,5 +48,14 @@ public class PropertyBox extends Box {
 				getHeight()
 		);
 		shapeRenderer.end();
+		batch.begin();
+		Point centerPoint = getCenterPoint();
+		font.draw(
+    		   batch,
+    		   getName(),
+    		   centerPoint.x - 20,
+    		   centerPoint.y + 10
+    	);
+		batch.end();
 	}
 }

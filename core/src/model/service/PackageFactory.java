@@ -27,9 +27,9 @@ public class PackageFactory {
 		Class class1 = deserializeClass(class1JsonObject);
 		classArray.add(class1);
 
-		JSONObject class2JsonObject = readJson("/home/kentaroishii/eclipse-workspace/sample/core/data/class2.json");
-		Class class2 = deserializeClass(class2JsonObject);
-		classArray.add(class2);
+//		JSONObject class2JsonObject = readJson("/home/kentaroishii/eclipse-workspace/sample/core/data/class2.json");
+//		Class class2 = deserializeClass(class2JsonObject);
+//		classArray.add(class2);
 
 		Package p = new Package("package", classArray);
 		return p;
@@ -97,7 +97,8 @@ public class PackageFactory {
 			try {
 				c.setInternalDependencies(src, dst);
 			} catch (Exception e) {
-				System.exit(1);;
+				System.exit(1);
+				;
 			}
 		}
 		return c;
