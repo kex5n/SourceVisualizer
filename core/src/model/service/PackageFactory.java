@@ -23,13 +23,9 @@ public class PackageFactory {
 	public static Package create() {
 		ArrayList<Class> classArray = new ArrayList<Class>();
 
-		JSONObject class1JsonObject = readJson("/home/kentaroishii/eclipse-workspace/sample/core/data/class1.json");
-		Class class1 = deserializeClass(class1JsonObject);
-		classArray.add(class1);
-
-//		JSONObject class2JsonObject = readJson("/home/kentaroishii/eclipse-workspace/sample/core/data/class2.json");
-//		Class class2 = deserializeClass(class2JsonObject);
-//		classArray.add(class2);
+		JSONObject classJsonObject = readJson("path/to/SourceVisualizer/core/data/class.json");
+		Class cls = deserializeClass(classJsonObject);
+		classArray.add(class);
 
 		Package p = new Package("package", classArray);
 		return p;
