@@ -49,7 +49,7 @@
 ### 例
 ```json
 {
-	"classname":"c2",
+    "classname":"c2",
     "properties": [
         {"name":"v21","type":"int"},
         {"name":"v22","type":"int"}
