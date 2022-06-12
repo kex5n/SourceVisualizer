@@ -25,7 +25,7 @@ public class PackageFactory {
 
 		JSONObject classJsonObject = readJson("path/to/SourceVisualizer/core/data/class.json");
 		Class cls = deserializeClass(classJsonObject);
-		classArray.add(class);
+		classArray.add(cls);
 
 		Package p = new Package("package", classArray);
 		return p;
