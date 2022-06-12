@@ -14,7 +14,7 @@ eclipseで実行することを前提としている。実行環境は以下。
 desktop/src/com/sourcevisualizer/desktop/DesktopLauncher.javaをJava AppicationとしてRunする。
 
 # 画面説明
-【メイン画面(全体)】
+## メイン画面(全体)
 
 ![whole view](images/whole_view.png)
 
@@ -24,7 +24,7 @@ desktop/src/com/sourcevisualizer/desktop/DesktopLauncher.javaをJava Appication�
 ② 操作ビュー
 要素の追加や, 操作を戻したり再実行を行うビュー.
 
-【状態ビュー】
+## 状態ビュー
 
 ![status_view](images/status_view.png)
 
@@ -49,7 +49,7 @@ desktop/src/com/sourcevisualizer/desktop/DesktopLauncher.javaをJava Appication�
 ⑦ 移動履歴ベクトル
 プロパティ, あるいはメソッドがユーザーの操作によりクラスをまたいで移動したことを示す. ここでいう移動はユーザーのドラッグアンドドロップ操作によるものの他, ツールによる依存関係解決の作用によるものも含む.
 
-【操作ビュー】
+## 操作ビュー
 
 ![controller_view](images/controller_view.png)
 
@@ -66,7 +66,7 @@ desktop/src/com/sourcevisualizer/desktop/DesktopLauncher.javaをJava Appication�
 状態をユーザーが操作を行う前の, 一つ前の状態に戻したり, 一つ先の状態に進めるボタン. forwardボタンを押下することで状態を一つ進めることができ, backwardボタンを押下することで状態を一つ戻すことができる.
 状態を戻すには初期状態より最低でも一度は操作を行っていること, 状態を進めるには最低でも一度は状態を戻している必要がある.
 
-【ログウィンドウ】
+## ログウィンドウ
 
 ![log_window](images/log_window.png)
 
