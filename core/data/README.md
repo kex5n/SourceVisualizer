@@ -56,27 +56,27 @@
     ],
     "methods": [
         {
-			"name":"m21",
-			"return":"void",
-			"argcnt":1,
-			"args":[{"name":"x","type":"int"}]
+            "name":"m21",
+            "return":"void",
+            "argcnt":1,
+            "args":[{"name":"x","type":"int"}]
         },
-		{
-			"name":"m22",
-			"return":"void",
-			"argcnt":1,
-			"args":[{"name":"y","type":"int"}]		
-		}
+        {
+            "name":"m22",
+            "return":"void",
+            "argcnt":1,
+            "args":[{"name":"y","type":"int"}]		
+        }
     ],
-	"dependencies":
-		{
-			"mm":[
-				{"src":"m21","dst":"m22"}
-			],
-			"mv":[
-				{"src":"m21","dst":"v21"},
-				{"src":"m22","dst":"v22"}
-			]
-		}
+    "dependencies":
+        {
+            "mm":[
+                {"src":"m21","dst":"m22"}
+            ],
+            "mv":[
+                {"src":"m21","dst":"v21"},
+                {"src":"m22","dst":"v22"}
+            ]
+        }
 }
 ```
