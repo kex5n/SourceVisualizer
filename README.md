@@ -1,2 +1,0 @@
-# SourceVisualizer
-Vsitualize source dependencies.
