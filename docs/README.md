@@ -15,6 +15,7 @@ desktop/src/com/sourcevisualizer/desktop/DesktopLauncher.javaをJava Appication�
 
 # 画面説明
 【メイン画面(全体)】
+
 ![whole view](images/whole_view.png)
 
 ① 状態ビュー
@@ -24,6 +25,7 @@ desktop/src/com/sourcevisualizer/desktop/DesktopLauncher.javaをJava Appication�
 要素の追加や, 操作を戻したり再実行を行うビュー.
 
 【状態ビュー】
+
 ![status_view](images/status_view.png)
 
 ① クラスボックス
@@ -48,6 +50,7 @@ desktop/src/com/sourcevisualizer/desktop/DesktopLauncher.javaをJava Appication�
 プロパティ, あるいはメソッドがユーザーの操作によりクラスをまたいで移動したことを示す. ここでいう移動はユーザーのドラッグアンドドロップ操作によるものの他, ツールによる依存関係解決の作用によるものも含む.
 
 【操作ビュー】
+
 ![controller_view](images/controller_view.png)
 
 ① クラス追加ボタン
@@ -64,6 +67,7 @@ desktop/src/com/sourcevisualizer/desktop/DesktopLauncher.javaをJava Appication�
 状態を戻すには初期状態より最低でも一度は操作を行っていること, 状態を進めるには最低でも一度は状態を戻している必要がある.
 
 【ログウィンドウ】
+
 ![log_window](images/log_window.png)
 
 ログウィンドウには操作を行った履歴が表示される.履歴の種類は以下の通り.
