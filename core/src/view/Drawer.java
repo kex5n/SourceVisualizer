@@ -465,7 +465,7 @@ public class Drawer {
 		textButtonStyle.down = skin.newDrawable("white", Color.DARK_GRAY);
 		textButtonStyle.over = skin.newDrawable("white", Color.LIGHT_GRAY);
 
-		FileHandle file = Gdx.files.local("/home/kentaroishii/eclipse-workspace/sample/core/data/NuNimonade-M2.otf");
+		FileHandle file = Gdx.files.local("path/to/otffile");
 		FreeTypeFontGenerator fontGenerator = new FreeTypeFontGenerator(file);
        FreeTypeFontGenerator.FreeTypeFontParameter param = new FreeTypeFontGenerator.FreeTypeFontParameter();
        param.size = 35;

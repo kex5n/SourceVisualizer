@@ -21,7 +21,7 @@ public class ClassBox extends Box {
 
 	public ClassBox(Point startPoint, String name) {
 		super(startPoint, CLASS_BOX_WIDTH, CLASS_BOX_HEIGHT, name);
-		FileHandle file = Gdx.files.local("/home/kentaroishii/eclipse-workspace/sample/core/data/NuNimonade-M2.otf");
+		FileHandle file = Gdx.files.local("path/to/otffile");
        fontGenerator = new FreeTypeFontGenerator(file);
        FreeTypeFontGenerator.FreeTypeFontParameter param = new FreeTypeFontGenerator.FreeTypeFontParameter();
        param.size = 40;

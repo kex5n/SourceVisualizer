@@ -21,7 +21,7 @@ public class LogWindow extends ApplicationAdapter {
 		logText = "";
 		this.width = width;
 		this.height = height;
-		FileHandle file = Gdx.files.local("/home/kentaroishii/eclipse-workspace/sample/core/data/NuNimonade-M2.otf");
+		FileHandle file = Gdx.files.local("path/to/otffile");
        fontGenerator = new FreeTypeFontGenerator(file);
        FreeTypeFontGenerator.FreeTypeFontParameter param = new FreeTypeFontGenerator.FreeTypeFontParameter();
        param.size = 60;
